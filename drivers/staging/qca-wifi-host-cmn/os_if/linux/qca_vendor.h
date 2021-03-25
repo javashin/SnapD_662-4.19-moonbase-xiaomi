@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -43,7 +43,12 @@
  * @QCA_NL80211_VENDOR_SUBCMD_ROAMING: Roaming
  * @QCA_NL80211_VENDOR_SUBCMD_AVOID_FREQUENCY: Avoid frequency.
  * @QCA_NL80211_VENDOR_SUBCMD_DFS_CAPABILITY: DFS capability
- * @QCA_NL80211_VENDOR_SUBCMD_NAN: Nan
+ * @QCA_NL80211_VENDOR_SUBCMD_NAN: NAN command/event which is used to pass
+ *	NAN Request/Response and NAN Indication messages. These messages are
+ *	interpreted between the framework and the firmware component. While
+ *	sending the command from userspace to the driver, payload is not
+ *	encapsulated inside any attribute. Attribute QCA_WLAN_VENDOR_ATTR_NAN
+ *	is used when receiving vendor events in userspace from the driver.
  * @QCA_NL80211_VENDOR_SUBCMD_STATS_EXT: Ext stats
  * @QCA_NL80211_VENDOR_SUBCMD_LL_STATS_SET: Link layer stats set
  * @QCA_NL80211_VENDOR_SUBCMD_LL_STATS_GET: Link layer stats get
@@ -204,7 +209,9 @@
  * @QCA_NL80211_VENDOR_SUBCMD_SPECTRAL_SCAN_START: Start spectral scan. The scan
  *      parameters are specified by enum qca_wlan_vendor_attr_spectral_scan.
  *      This returns a cookie (%QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_COOKIE)
- *      identifying the operation in success case.
+ *      identifying the operation in success case. In failure cases an
+ *      error code (%QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_ERROR_CODE)
+ *      describing the reason for the failure is returned.
  * @QCA_NL80211_VENDOR_SUBCMD_SPECTRAL_SCAN_STOP: Stop spectral scan. This uses
  *      a cookie (%QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_COOKIE) from
  * @QCA_NL80211_VENDOR_SUBCMD_SPECTRAL_SCAN_START to identify the scan to
@@ -262,7 +269,6 @@
  * @QCA_NL80211_VENDOR_SUBCMD_WIFI_TEST_CONFIGURATION: Sub command to set WiFi
  *	test configuration. Attributes for this command are defined in
  *	enum qca_wlan_vendor_attr_wifi_test_config.
- *
  * @QCA_NL80211_VENDOR_SUBCMD_NAN_EXT: An extendable version of NAN vendor
  *	command. The earlier command for NAN, QCA_NL80211_VENDOR_SUBCMD_NAN,
  *	carried a payload which was a binary blob of data. The command was not
@@ -334,6 +340,14 @@
  *
  *	All the attributes used with this command are defined in
  *	enum qca_wlan_vendor_attr_beacon_reporting_params.
+ * @QCA_NL80211_VENDOR_SUBCMD_INTEROP_ISSUES_AP: In practice, some aps have
+ *	interop issues with the DUT. This sub command is used to transfer the
+ *	ap info between driver and user space. This works both as a command
+ *	or event. As a command, it configs the stored list of aps from user
+ *	space to firmware; as an event, it indicates the ap info detected by
+ *	firmware to user space for persistent storage. The attributes defined
+ *	in enum qca_vendor_attr_interop_issues_ap are used to deliver the
+ *	parameters.
  * @QCA_NL80211_VENDOR_SUBCMD_OEM_DATA: This command is used to send OEM data
  *	binary blobs from application/service to firmware. The attributes
  *	defined in enum qca_wlan_vendor_attr_oem_data_params are used to
@@ -565,14 +579,17 @@ enum qca_nl80211_vendor_subcmds {
 	QCA_NL80211_VENDOR_SUBCMD_GET_SAR_LIMITS = 164,
 	QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_INFO = 165,
 	QCA_NL80211_VENDOR_SUBCMD_SET_QDEPTH_THRESH = 166,
+	QCA_NL80211_VENDOR_SUBCMD_THERMAL_CMD = 167,
 	/* Wi-Fi test configuration subcommand */
 	QCA_NL80211_VENDOR_SUBCMD_WIFI_TEST_CONFIGURATION = 169,
+	QCA_NL80211_VENDOR_SUBCMD_NAN_EXT = 171,
 	QCA_NL80211_VENDOR_SUBCMD_THROUGHPUT_CHANGE_EVENT = 174,
 	QCA_NL80211_VENDOR_SUBCMD_COEX_CONFIG = 175,
 	QCA_NL80211_VENDOR_SUBCMD_GET_FW_STATE = 177,
 	QCA_NL80211_VENDOR_SUBCMD_PEER_STATS_CACHE_FLUSH = 178,
 	QCA_NL80211_VENDOR_SUBCMD_MPTA_HELPER_CONFIG = 179,
 	QCA_NL80211_VENDOR_SUBCMD_BEACON_REPORTING = 180,
+	QCA_NL80211_VENDOR_SUBCMD_INTEROP_ISSUES_AP = 181,
 	QCA_NL80211_VENDOR_SUBCMD_OEM_DATA = 182,
 	QCA_NL80211_VENDOR_SUBCMD_GET_SAR_LIMITS_EVENT = 187,
 	QCA_NL80211_VENDOR_SUBCMD_UPDATE_STA_INFO = 188,
@@ -630,39 +647,6 @@ enum qca_wlan_vendor_hang_reason {
 	QCA_WLAN_HANG_DXE_FAILURE = 12,
 	/* WMI pending commands exceed the maximum count */
 	QCA_WLAN_HANG_WMI_EXCEED_MAX_PENDING_CMDS = 13,
-	/* Timeout for peer STA connection accept command's response from the
-	 * FW in AP mode. This command is triggered when a STA (peer) connects
-	 * to AP (DUT).
-	 */
-	QCA_WLAN_HANG_AP_STA_CONNECT_REQ_TIMEOUT = 14,
-	/* Timeout for the AP connection accept command's response from the FW
-	 * in STA mode. This command is triggered when the STA (DUT) connects
-	 * to an AP (peer).
-	 */
-	QCA_WLAN_HANG_STA_AP_CONNECT_REQ_TIMEOUT = 15,
-	/* Timeout waiting for the response to the MAC HW mode change command
-	 * sent to FW as a part of MAC mode switch among DBS (Dual Band
-	 * Simultaneous), SCC (Single Channel Concurrency), and MCC (Multi
-	 * Channel Concurrency) mode.
-	 */
-	QCA_WLAN_HANG_MAC_HW_MODE_CHANGE_TIMEOUT = 16,
-	/* Timeout waiting for the response from FW to configure the MAC HW's
-	 * mode. This operation is to configure the single/two MACs in either
-	 * SCC/MCC/DBS mode.
-	 */
-	QCA_WLAN_HANG_MAC_HW_MODE_CONFIG_TIMEOUT = 17,
-	/* Timeout waiting for response of VDEV start command from the FW */
-	QCA_WLAN_HANG_VDEV_START_RESPONSE_TIMED_OUT = 18,
-	/* Timeout waiting for response of VDEV restart command from the FW */
-	QCA_WLAN_HANG_VDEV_RESTART_RESPONSE_TIMED_OUT = 19,
-	/* Timeout waiting for response of VDEV stop command from the FW */
-	QCA_WLAN_HANG_VDEV_STOP_RESPONSE_TIMED_OUT = 20,
-	/* Timeout waiting for response of VDEV delete command from the FW */
-	QCA_WLAN_HANG_VDEV_DELETE_RESPONSE_TIMED_OUT = 21,
-	/* Timeout waiting for response of peer all delete request command to
-	 * the FW on a specific VDEV.
-	 */
-	QCA_WLAN_HANG_VDEV_PEER_DELETE_ALL_RESPONSE_TIMED_OUT = 22,
 };
 
 /**
@@ -676,12 +660,7 @@ enum qca_wlan_vendor_attr_hang {
 	 * qca_wlan_vendor_hang_reason.
 	 */
 	QCA_WLAN_VENDOR_ATTR_HANG_REASON = 1,
-	/* The binary blob data associated with the hang reason specified by
-	 * QCA_WLAN_VENDOR_ATTR_HANG_REASON. This binary data is expected to
-	 * contain the required dump to analyze the reason for the hang.
-	 * NLA_BINARY attribute, the max size is 1024 bytes.
-	 */
-	QCA_WLAN_VENDOR_ATTR_HANG_REASON_DATA = 2,
+
 	QCA_WLAN_VENDOR_ATTR_HANG_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_HANG_MAX =
 		QCA_WLAN_VENDOR_ATTR_HANG_AFTER_LAST - 1,
@@ -852,7 +831,8 @@ enum qca_wlan_auth_type {
  * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_MAX_PHY_RATE:
  *  Max phy rate of remote station
  * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_TX_PACKETS:
- *  TX packets to remote station
+ *  Unsigned 32 bit value. Represent the number of all frames from host to
+ *  firmware.
  * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_TX_BYTES:
  *  TX bytes to remote station
  * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_RX_PACKETS:
@@ -878,6 +858,39 @@ enum qca_wlan_auth_type {
  * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_SGI_ENABLE:
  *  Remote station short GI enable/disable
  * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_PAD: Attribute type for padding
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_RX_RETRY_COUNT:
+ *  Unsigned 32 bit value. Represents the number of retried frames received
+ *  from remote station.
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_RX_BC_MC_COUNT:
+ *  Unsigned 32 bit value. Represents the number of broadcast and multicast
+ *  frames received from remote station.
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_TX_FAILURE:
+ *  Unsigned 32 bit value. Represents the number of frames which is failed to
+ *  be transmitted.
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_AVG_RSSI_PER_CHAIN:
+ *  An array of CHAINS x signed 32 bit value. Represents the average value of
+ *  RSSI per chain calculated for the remote station.
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_TX_RETRY_SUCCEED:
+ *  Unsigned 32 bit value. Represents the number of frames retried but
+ *  successfully transmitted to remote station.
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_RX_LAST_PKT_RSSI:
+ *  Signed 32 bit value. Represents the RSSI calculated by last packet received
+ *  from remote station.
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_TX_RETRY:
+ *  Unsigned 32 bit value. Represent the number of retried frames from host
+ *  to firmware.
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_TX_RETRY_EXHAUST:
+ *  Unsigned 32 bit value. Represent the number of frames retried but finally
+ *  failed from host to firmware.
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_TX_TOTAL_FW:
+ *  Unsigned 32 bit value. Represent the number of all frames from firmware
+ *  to remote station.
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_TX_RETRY_FW:
+ *  Unsigned 32 bit value. Represent the number of retried frames from
+ *  firmware to remote station.
+ * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_TX_RETRY_EXHAUST_FW:
+ *  Unsigned 32 bit value. Represent the number of frames retried but finally
+ *  failed from firmware to remote station.
  * @QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_BEACON_IES: Binary attribute
  *  containing the raw information elements from Beacon frames. Represents
  *  the Beacon frames of the current BSS in the connected state. When queried
@@ -920,9 +933,7 @@ enum qca_wlan_vendor_attr_get_station_info {
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_RX_STBC,
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_CH_WIDTH,
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_SGI_ENABLE,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0))
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_PAD,
-#endif
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_RX_RETRY_COUNT,
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_RX_BC_MC_COUNT,
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_TX_FAILURE,
@@ -937,6 +948,7 @@ enum qca_wlan_vendor_attr_get_station_info {
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_BEACON_IES,
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_DRIVER_DISCONNECT_REASON,
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_ASSOC_REQ_IES,
+
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_MAX =
@@ -1002,6 +1014,8 @@ enum qca_wlan_vendor_attr_get_station_info {
  *	vendor scan complete event  index
  * @QCA_NL80211_VENDOR_SUBCMD_GW_PARAM_CONFIG_INDEX:
  *	update gateway parameters index
+ * @QCA_NL80211_VENDOR_SUBCMD_INTEROP_ISSUES_AP_INDEX:
+ *	update aps info which has interop issues events index
  * @QCA_NL80211_VENDOR_SUBCMD_TSF_INDEX: TSF response events index
  * @QCA_NL80211_VENDOR_SUBCMD_P2P_LO_EVENT_INDEX:
  *      P2P listen offload index
@@ -1010,6 +1024,7 @@ enum qca_wlan_vendor_attr_get_station_info {
  * @QCA_NL80211_VENDOR_SUBCMD_NUD_STATS_GET_INDEX: NUD DEBUG Stats index
  * @QCA_NL80211_VENDOR_SUBCMD_HANG_REASON_INDEX: hang event reason index
  * @QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_INFO_INDEX: MAC mode info index
+ * @QCA_NL80211_VENDOR_SUBCMD_NAN_EXT_INDEX: NAN Extended index
  * @QCA_NL80211_VENDOR_SUBCMD_BEACON_REPORTING_INDEX: Beacon reporting index
  * @QCA_NL80211_VENDOR_SUBCMD_REQUEST_SAR_LIMITS_INDEX: Request SAR limit index
  */
@@ -1017,9 +1032,7 @@ enum qca_wlan_vendor_attr_get_station_info {
 enum qca_nl80211_vendor_subcmds_index {
 	QCA_NL80211_VENDOR_SUBCMD_AVOID_FREQUENCY_INDEX = 0,
 
-#ifdef WLAN_FEATURE_NAN
 	QCA_NL80211_VENDOR_SUBCMD_NAN_INDEX,
-#endif /* WLAN_FEATURE_NAN */
 
 #ifdef WLAN_FEATURE_STATS_EXT
 	QCA_NL80211_VENDOR_SUBCMD_STATS_EXT_INDEX,
@@ -1081,12 +1094,11 @@ enum qca_nl80211_vendor_subcmds_index {
 	QCA_NL80211_VENDOR_SUBCMD_SCAN_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_SCAN_DONE_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_GW_PARAM_CONFIG_INDEX,
+	QCA_NL80211_VENDOR_SUBCMD_INTEROP_ISSUES_AP_INDEX,
 #ifdef WLAN_FEATURE_TSF
 	QCA_NL80211_VENDOR_SUBCMD_TSF_INDEX,
 #endif
-#ifdef WLAN_FEATURE_NAN_DATAPATH
 	QCA_NL80211_VENDOR_SUBCMD_NDP_INDEX,
-#endif /* WLAN_FEATURE_NAN_DATAPATH */
 	QCA_NL80211_VENDOR_SUBCMD_P2P_LO_EVENT_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_SAP_CONDITIONAL_CHAN_SWITCH_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_UPDATE_EXTERNAL_ACS_CONFIG,
@@ -1095,7 +1107,10 @@ enum qca_nl80211_vendor_subcmds_index {
 	QCA_NL80211_VENDOR_SUBCMD_HANG_REASON_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_HTT_STATS_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_INFO_INDEX,
+	QCA_NL80211_VENDOR_SUBCMD_NAN_EXT_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_THROUGHPUT_CHANGE_EVENT_INDEX,
+	QCA_NL80211_VENDOR_SUBCMD_LINK_PROPERTIES_INDEX,
+	QCA_NL80211_VENDOR_SUBCMD_PEER_STATS_CACHE_FLUSH_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_BEACON_REPORTING_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_ROAM_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_OEM_DATA_INDEX,
@@ -1457,6 +1472,12 @@ enum qca_wlan_vendor_attr {
 	 * in user space.
 	 */
 	QCA_WLAN_VENDOR_ATTR_CHAIN_EVM = 41,
+	/*
+	 * Used in QCA_NL80211_VENDOR_SUBCMD_GET_FW_STATE command to report
+	 * wlan firmware current state. FW state is an unsigned 8 bit value,
+	 * one of the values in enum qca_wlan_vendor_attr_fw_state.
+	 */
+	QCA_WLAN_VENDOR_ATTR_FW_STATE = 42,
 
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_AFTER_LAST,
@@ -1878,6 +1899,49 @@ enum qca_wlan_vendor_attr_extscan_results {
 	QCA_WLAN_VENDOR_ATTR_EXTSCAN_RESULTS_AFTER_LAST - 1,
 };
 
+/**
+ * enum qca_vendor_interop_issues_ap_type - interop issues type
+ * This enum defines the valid set of values of interop issues type. These
+ * values are used by attribute %QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_TYPE.
+ *
+ * @QCA_VENDOR_INTEROP_ISSUES_AP_ON_STA_PS: the ap has power save interop issue
+ * when the STA's Qpower feature is enabled.
+ */
+enum qca_vendor_interop_issues_ap_type {
+	QCA_VENDOR_INTEROP_ISSUES_AP_INVALID = 0,
+	QCA_VENDOR_INTEROP_ISSUES_AP_ON_STA_PS = 1,
+};
+
+/**
+ * enum qca_vendor_attr_interop_issues_ap - attribute for ap with interop issues
+ * values are used by %QCA_NL80211_VENDOR_SUBCMD_INTEROP_ISSUES_AP.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_INVALID: invalid value
+ * @QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_TYPE: interop issues type
+ * 32-bit unsigned value, The type defined in enum
+ * qca_vendor_interop_issues_ap_type are used.
+ * @QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_LIST: aps' bssid container
+ * array of nested QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_BSSID attributes,
+ * it is present and mandatory for the command but is not used for
+ * the event since only a single BSSID is reported in an event.
+ * @QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_BSSID: ap's bssid
+ * 6-byte MAC address. It is used within the nested
+ * QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_LIST attribute in command case
+ * and without such encapsulation in the event case.
+ * @QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_AFTER_LAST: last value
+ * @QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_MAX: max value
+ */
+enum qca_vendor_attr_interop_issues_ap {
+	QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_INVALID,
+	QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_TYPE,
+	QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_LIST,
+	QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_BSSID,
+	/* keep last */
+	QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_AFTER_LAST,
+	QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_MAX =
+		QCA_WLAN_VENDOR_ATTR_INTEROP_ISSUES_AP_AFTER_LAST - 1
+};
+
 #ifdef WLAN_FEATURE_LINK_LAYER_STATS
 
 /**
@@ -2143,12 +2207,6 @@ enum qca_wlan_vendor_attr_ll_stats_results_type {
  * @QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_RTS_FAIL_CNT: RTS fail count
  * @QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_PPDU_SUCC_CNT: PPDU successful count
  * @QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_PPDU_FAIL_CNT: PPDU fail count
- * @QCA_WLAN_VENDOR_ATTR_LL_STATS_CHANNEL_TX_TIME:  Unsigned int 32bit
- *      value representing total number of msecs the radio is transmitting on
- *      this channel.
- * @QCA_WLAN_VENDOR_ATTR_LL_STATS_CHANNEL_RX_TIME:  Unsigned int 32bit
- *      value representing total number of msecs the radio is receiving all
- *      802.11 frames intended for this device on this channel.
  * @QCA_WLAN_VENDOR_ATTR_LL_STATS_AFTER_LAST: After last
  * @QCA_WLAN_VENDOR_ATTR_FEATURE_SET_MAX: Max value
  */
@@ -2253,9 +2311,6 @@ enum qca_wlan_vendor_attr_ll_stats_results {
 	QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_RTS_FAIL_CNT = 80,
 	QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_PPDU_SUCC_CNT = 81,
 	QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_PPDU_FAIL_CNT = 82,
-
-	QCA_WLAN_VENDOR_ATTR_LL_STATS_CHANNEL_TX_TIME = 84,
-	QCA_WLAN_VENDOR_ATTR_LL_STATS_CHANNEL_RX_TIME = 85,
 
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_LL_STATS_AFTER_LAST,
@@ -2916,7 +2971,6 @@ enum qca_vendor_attr_roam_control {
  * enum qca_wlan_vendor_attr_roaming_config_params: Attributes for data used by
  * QCA_NL80211_VENDOR_SUBCMD_ROAM sub command.
  *
- * @QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_INVALID: Invalid initial value
  * @QCA_WLAN_VENDOR_ATTR_ROAMING_SUBCMD: Unsigned 32-bit value.
  *	Represents the different roam sub commands referred by
  *	enum qca_wlan_vendor_roaming_subcmd.
@@ -3039,6 +3093,7 @@ enum qca_wlan_vendor_attr_roaming_config_params {
 	QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS = 18,
 	QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS_NUM_BSSID = 19,
 	QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS_BSSID = 20,
+	QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS_HINT = 21,
 
 	QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_CONTROL = 22,
 
@@ -3518,6 +3573,12 @@ enum qca_wlan_vendor_attr_get_logger_features {
  *	to specify negotiated rate flags i.e. ht, vht and channel width
  * @QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_FREQ: Unsigned 32bit value to
  *	specify the operating frequency
+ * @QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_MAC_ADDR: MAC Address of the peer
+ * (STA / AP ) for the connected link.
+ * @QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_STA_FLAGS: Attribute containing a
+ * &struct nl80211_sta_flag_update for the respective connected link. MAC
+ * address of the peer represented by
+ * QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_MAC_ADDR.
  * @QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_AFTER_LAST: after last
  * @QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_MAX: max value
  */
@@ -3526,6 +3587,8 @@ enum qca_wlan_vendor_attr_link_properties {
 	QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_NSS = 1,
 	QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_RATE_FLAGS = 2,
 	QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_FREQ = 3,
+	QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_MAC_ADDR  = 4,
+	QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_STA_FLAGS  = 5,
 
 	/* KEEP LAST */
 	QCA_WLAN_VENDOR_ATTR_LINK_PROPERTIES_AFTER_LAST,
@@ -3581,6 +3644,14 @@ enum qca_wlan_vendor_attr_nd_offload {
  * @QCA_WLAN_VENDOR_FEATURE_SELF_MANAGED_REGULATORY: Device supports self
  *	managed regulatory.
  * @QCA_WLAN_VENDOR_FEATURE_TWT: Device supports TWT (Target Wake Time).
+ * @QCA_WLAN_VENDOR_FEATURE_11AX: Device supports 802.11ax (HE)
+ * @QCA_WLAN_VENDOR_FEATURE_6GHZ_SUPPORT: Device supports 6 GHz band operation
+ * @QCA_WLAN_VENDOR_FEATURE_THERMAL_CONFIG: Device is capable of receiving
+ *	and applying thermal configuration through
+ *	%QCA_WLAN_VENDOR_ATTR_THERMAL_LEVEL and
+ *	%QCA_WLAN_VENDOR_ATTR_THERMAL_COMPLETION_WINDOW attributes from
+ *	userspace.
+ * @NUM_QCA_WLAN_VENDOR_FEATURES: Number of assigned feature bits
  */
 enum qca_wlan_vendor_features {
 	QCA_WLAN_VENDOR_FEATURE_KEY_MGMT_OFFLOAD = 0,
@@ -3592,6 +3663,10 @@ enum qca_wlan_vendor_features {
 	QCA_WLAN_VENDOR_FEATURE_OCE_STA_CFON = 6,
 	QCA_WLAN_VENDOR_FEATURE_SELF_MANAGED_REGULATORY = 7,
 	QCA_WLAN_VENDOR_FEATURE_TWT = 8,
+	QCA_WLAN_VENDOR_FEATURE_11AX = 9,
+	QCA_WLAN_VENDOR_FEATURE_6GHZ_SUPPORT = 10,
+	QCA_WLAN_VENDOR_FEATURE_THERMAL_CONFIG = 11,
+
 	/* Additional features need to be added above this */
 	NUM_QCA_WLAN_VENDOR_FEATURES
 };
@@ -4038,6 +4113,11 @@ enum qca_wlan_vendor_attr_config {
 	 */
 	QCA_WLAN_VENDOR_ATTR_DISCONNECT_IES = 58,
 
+	/* 8-bit unsigned value for ELNA bypass.
+	 * 1-Enable, 0-Disable
+	 */
+	QCA_WLAN_VENDOR_ATTR_CONFIG_ELNA_BYPASS = 59,
+
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_CONFIG_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_CONFIG_MAX =
@@ -4150,104 +4230,6 @@ enum qca_wlan_vendor_attr_offloaded_packets {
 		QCA_WLAN_VENDOR_ATTR_OFFLOADED_PACKETS_AFTER_LAST - 1,
 };
 
-/**
- * enum qca_disconnect_reason_codes - Specifies driver disconnect reason codes.
- * Used when the driver triggers the STA to disconnect from the AP.
- *
- * @QCA_DISCONNECT_REASON_UNSPECIFIED: The host driver triggered the
- * disconnection with the AP due to unspecified reasons.
- *
- * @QCA_DISCONNECT_REASON_INTERNAL_ROAM_FAILURE: The host driver triggered the
- * disconnection with the AP due to a roaming failure. This roaming is triggered
- * internally (host driver/firmware).
- *
- * @QCA_DISCONNECT_REASON_EXTERNAL_ROAM_FAILURE: The driver disconnected from
- * the AP when the user/external triggered roaming fails.
- *
- * @QCA_DISCONNECT_REASON_GATEWAY_REACHABILITY_FAILURE: This reason code is used
- * by the host driver whenever gateway reachability failure is detected and the
- * driver disconnects with AP.
- *
- * @QCA_DISCONNECT_REASON_UNSUPPORTED_CHANNEL_CSA: The driver disconnected from
- * the AP on a channel switch announcement from it with an unsupported channel.
- *
- * @QCA_DISCONNECT_REASON_OPER_CHANNEL_DISABLED_INDOOR: On a concurrent AP start
- * with indoor channels disabled and if the STA is connected on one of these
- * disabled channels, the host driver disconnected the STA with this reason
- * code.
- *
- * @QCA_DISCONNECT_REASON_OPER_CHANNEL_USER_DISABLED: Disconnection due to an
- * explicit request from the user to disable the current operating channel.
- *
- * @QCA_DISCONNECT_REASON_DEVICE_RECOVERY: STA disconnected from the AP due to
- * the internal host driver/firmware recovery.
- *
- * @QCA_DISCONNECT_REASON_KEY_TIMEOUT: The driver triggered the disconnection on
- * a timeout for the key installations from the user space.
- *
- * @QCA_DISCONNECT_REASON_OPER_CHANNEL_BAND_CHANGE: The dDriver disconnected the
- * STA on a band change request from the user space to a different band from the
- * current operation channel/band.
- *
- * @QCA_DISCONNECT_REASON_IFACE_DOWN: The STA disconnected from the AP on an
- * interface down trigger from the user space.
- *
- * @QCA_DISCONNECT_REASON_PEER_XRETRY_FAIL: The host driver disconnected the
- * STA on getting continuous transmission failures for multiple Data frames.
- *
- * @QCA_DISCONNECT_REASON_PEER_INACTIVITY: The STA does a keep alive
- * notification to the AP by transmitting NULL/G-ARP frames. This disconnection
- * represents inactivity from AP on such transmissions.
-
- * @QCA_DISCONNECT_REASON_SA_QUERY_TIMEOUT: This reason code is used on
- * disconnection when SA Query times out (AP does not respond to SA Query).
- *
- * @QCA_DISCONNECT_REASON_BEACON_MISS_FAILURE: The host driver disconnected the
- * STA on missing the beacons continuously from the AP.
- *
- * @QCA_DISCONNECT_REASON_CHANNEL_SWITCH_FAILURE: Disconnection due to STA not
- * able to move to the channel mentioned by the AP in CSA.
- *
- * @QCA_DISCONNECT_REASON_USER_TRIGGERED: User triggered disconnection.
- */
-enum qca_disconnect_reason_codes {
-	QCA_DISCONNECT_REASON_UNSPECIFIED = 0,
-	QCA_DISCONNECT_REASON_INTERNAL_ROAM_FAILURE = 1,
-	QCA_DISCONNECT_REASON_EXTERNAL_ROAM_FAILURE = 2,
-	QCA_DISCONNECT_REASON_GATEWAY_REACHABILITY_FAILURE = 3,
-	QCA_DISCONNECT_REASON_UNSUPPORTED_CHANNEL_CSA = 4,
-	QCA_DISCONNECT_REASON_OPER_CHANNEL_DISABLED_INDOOR = 5,
-	QCA_DISCONNECT_REASON_OPER_CHANNEL_USER_DISABLED = 6,
-	QCA_DISCONNECT_REASON_DEVICE_RECOVERY = 7,
-	QCA_DISCONNECT_REASON_KEY_TIMEOUT = 8,
-	QCA_DISCONNECT_REASON_OPER_CHANNEL_BAND_CHANGE = 9,
-	QCA_DISCONNECT_REASON_IFACE_DOWN = 10,
-	QCA_DISCONNECT_REASON_PEER_XRETRY_FAIL = 11,
-	QCA_DISCONNECT_REASON_PEER_INACTIVITY = 12,
-	QCA_DISCONNECT_REASON_SA_QUERY_TIMEOUT = 13,
-	QCA_DISCONNECT_REASON_BEACON_MISS_FAILURE = 14,
-	QCA_DISCONNECT_REASON_CHANNEL_SWITCH_FAILURE = 15,
-	QCA_DISCONNECT_REASON_USER_TRIGGERED = 16,
-};
-
-/**
- * enum qca_wlan_vendor_attr_driver_disconnect_reason - Defines attributes
- * used by %QCA_NL80211_VENDOR_SUBCMD_DRIVER_DISCONNECT_REASON vendor command.
- *
- * @QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASCON_CODE: u32 attribute.
- * This attribute represents the driver specific reason codes (local
- * driver/firmware initiated reasons for disconnection) defined
- * in enum qca_disconnect_reason_codes.
- */
-enum qca_wlan_vendor_attr_driver_disconnect_reason {
-	QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASON_INVALID = 0,
-	QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASCON_CODE = 1,
-
-	/* keep last */
-	QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASON_AFTER_LAST,
-	QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASON_MAX =
-	QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASON_AFTER_LAST - 1,
-};
 #endif
 
 /**
@@ -4538,15 +4520,20 @@ enum qca_iface_type {
 
 /**
  * enum qca_wlan_vendor_attr_pcl_config: attribute to vendor sub-command
- * QCA_WLAN_VENDOR_ATTR_EXTERNAL_ACS_EVENT_PCL.
+ * QCA_WLAN_VENDOR_ATTR_EXTERNAL_ACS_EVENT_PCL and
+ * QCA_NL80211_VENDOR_SUBCMD_GET_PREFERRED_FREQ_LIST.
  * @QCA_WLAN_VENDOR_ATTR_PCL_CONFIG_INVALID: invalid value
  * @QCA_WLAN_VENDOR_ATTR_PCL_CONFIG_CHANNEL: pcl channel number
  * @QCA_WLAN_VENDOR_ATTR_PCL_CONFIG_WEIGHT: pcl channel weight
+ * @QCA_WLAN_VENDOR_ATTR_PCL_CONFIG_FREQ: pcl channel frequency
+ * @QCA_WLAN_VENDOR_ATTR_PCL_CONFIG_FLAG: pcl channel flag bitmask
  */
 enum qca_wlan_vendor_attr_pcl_config {
 	QCA_WLAN_VENDOR_ATTR_PCL_INVALID = 0,
 	QCA_WLAN_VENDOR_ATTR_PCL_CHANNEL = 1,
 	QCA_WLAN_VENDOR_ATTR_PCL_WEIGHT = 2,
+	QCA_WLAN_VENDOR_ATTR_PCL_FREQ = 3,
+	QCA_WLAN_VENDOR_ATTR_PCL_FLAG = 4,
 };
 
 enum qca_set_band {
@@ -4676,6 +4663,93 @@ enum qca_wlan_vendor_attr_wake_stats {
 };
 
 /**
+ * enum qca_wlan_vendor_thermal_level - Defines various thermal levels
+ * configured by userspace to the driver/firmware. The values will be
+ * encapsulated in QCA_WLAN_VENDOR_ATTR_THERMAL_LEVEL attribute.
+ * The driver/firmware takes necessary actions requested by userspace
+ * such as throttling wifi tx etc. in order to mitigate high temperature.
+ *
+ * @QCA_WLAN_VENDOR_THERMAL_LEVEL_NONE: Stop/clear all throttling actions.
+ * @QCA_WLAN_VENDOR_THERMAL_LEVEL_LIGHT: Throttle tx lightly.
+ * @QCA_WLAN_VENDOR_THERMAL_LEVEL_MODERATE: Throttle tx moderately.
+ * @QCA_WLAN_VENDOR_THERMAL_LEVEL_SEVERE: Throttle tx severely.
+ * @QCA_WLAN_VENDOR_THERMAL_LEVEL_CRITICAL: Critical thermal level reached.
+ * @QCA_WLAN_VENDOR_THERMAL_LEVEL_EMERGENCY: Emergency thermal level reached.
+ */
+enum qca_wlan_vendor_thermal_level {
+	QCA_WLAN_VENDOR_THERMAL_LEVEL_NONE = 0,
+	QCA_WLAN_VENDOR_THERMAL_LEVEL_LIGHT = 1,
+	QCA_WLAN_VENDOR_THERMAL_LEVEL_MODERATE = 2,
+	QCA_WLAN_VENDOR_THERMAL_LEVEL_SEVERE = 3,
+	QCA_WLAN_VENDOR_THERMAL_LEVEL_CRITICAL = 4,
+	QCA_WLAN_VENDOR_THERMAL_LEVEL_EMERGENCY = 5,
+};
+
+/**
+ * enum qca_wlan_vendor_attr_thermal_cmd - Vendor subcmd attributes to set
+ * cmd value. Used for NL attributes for data used by
+ * QCA_NL80211_VENDOR_SUBCMD_THERMAL_CMD sub command.
+ */
+enum qca_wlan_vendor_attr_thermal_cmd {
+	QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_INVALID = 0,
+	/*
+	 * The value of command, driver will implement different operations
+	 * according to this value. It uses values defined in
+	 * enum qca_wlan_vendor_attr_thermal_cmd_type.
+	 * u32 attribute.
+	 */
+	QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_VALUE = 1,
+	/*
+	 * Userspace uses this attribute to configure thermal level to
+	 * driver/firmware. Used in request, u32 attribute, possible values
+	 * are defined in enum qca_wlan_vendor_thermal_level.
+	 */
+	QCA_WLAN_VENDOR_ATTR_THERMAL_LEVEL = 2,
+	/*
+	 * Userspace uses this attribute to configure the time in which the
+	 * driver/firmware should complete applying settings it received from
+	 * userspace with QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_SET_LEVEL
+	 * command type. Used in request, u32 attribute, value is in milli
+	 * seconds. A value of zero indicates to apply the settings
+	 * immediately. The driver/firmware can delay applying the configured
+	 * thermal settings within the time specified in this attribute if
+	 * there is any critical ongoing operation.
+	 */
+	QCA_WLAN_VENDOR_ATTR_THERMAL_COMPLETION_WINDOW = 3,
+	/* keep last */
+	QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_AFTER_LAST,
+	QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_MAX =
+		QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_AFTER_LAST - 1
+};
+
+/**
+ * qca_wlan_vendor_attr_thermal_cmd_type: Attribute values for
+ * QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_VALUE to the vendor subcmd
+ * QCA_NL80211_VENDOR_SUBCMD_THERMAL_CMD. This represents the
+ * thermal command types sent to driver.
+ * @QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_GET_PARAMS: Request to
+ * get thermal shutdown configuration parameters for display. Parameters
+ * responded from driver are defined in
+ * enum qca_wlan_vendor_attr_get_thermal_params_rsp.
+ * @QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_GET_TEMPERATURE: Request to
+ * get temperature. Host should respond with a temperature data. It is defined
+ * in enum qca_wlan_vendor_attr_thermal_get_temperature.
+ * @QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_SUSPEND: Request to execute thermal
+ * suspend action.
+ * @QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_RESUME: Request to execute thermal
+ * resume action.
+ * @QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_SET_LEVEL: Configure thermal level to
+ * the driver/firmware.
+ */
+enum qca_wlan_vendor_attr_thermal_cmd_type {
+	QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_GET_PARAMS,
+	QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_GET_TEMPERATURE,
+	QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_SUSPEND,
+	QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_RESUME,
+	QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_TYPE_SET_LEVEL,
+};
+
+/**
  * enum qca_vendor_element_id - QCA Vendor Specific element types
  *
  * These values are used to identify QCA Vendor Specific elements. The
@@ -4784,6 +4858,7 @@ enum qca_tsf_cmd {
  * @QCA_WLAN_VENDOR_ATTR_GET_PREFERRED_FREQ_LIST_INVALID: invalid value
  * @QCA_WLAN_VENDOR_ATTR_GET_PREFERRED_FREQ_LIST_IFACE_TYPE: interface type
  * @QCA_WLAN_VENDOR_ATTR_GET_PREFERRED_FREQ_LIST: preferred frequency list
+ * @QCA_WLAN_VENDOR_ATTR_GET_PREFERRED_FREQ_LIST_WEIGHED_PCL: pcl with weight
  * @QCA_WLAN_VENDOR_ATTR_GET_PREFERRED_FREQ_LIST_AFTER_LAST: after last
  * @QCA_WLAN_VENDOR_ATTR_GET_PREFERRED_FREQ_LIST_MAX: max
  */
@@ -4798,6 +4873,13 @@ enum qca_vendor_attr_get_preferred_freq_list {
 	 * in north-bound only.
 	 */
 	QCA_WLAN_VENDOR_ATTR_GET_PREFERRED_FREQ_LIST,
+	/* An array of nested values as per enum
+	 *  qca_wlan_vendor_attr_pcl_config attribute.
+	 *  Each element contains frequency (MHz), weight, and flag
+	 *  bit mask indicating how the frequency should be used in P2P
+	 *  negotiation.
+	 */
+	QCA_WLAN_VENDOR_ATTR_GET_PREFERRED_FREQ_LIST_WEIGHED_PCL,
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_GET_PREFERRED_FREQ_LIST_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_GET_PREFERRED_FREQ_LIST_MAX =
@@ -5447,6 +5529,18 @@ enum qca_wlan_vendor_attr_dmg_rf_sector_type {
 	QCA_WLAN_VENDOR_ATTR_DMG_RF_SECTOR_TYPE_RX,
 	QCA_WLAN_VENDOR_ATTR_DMG_RF_SECTOR_TYPE_TX,
 	QCA_WLAN_VENDOR_ATTR_DMG_RF_SECTOR_TYPE_MAX
+};
+
+/**
+ * enum qca_wlan_vendor_attr_fw_state - State of firmware
+ *
+ * @QCA_WLAN_VENDOR_ATTR_FW_STATE_ERROR: FW is in bad state
+ * @QCA_WLAN_VENDOR_ATTR_FW_STATE_ACTIVE: FW is active
+ */
+enum qca_wlan_vendor_attr_fw_state {
+	QCA_WLAN_VENDOR_ATTR_FW_STATE_ERROR,
+	QCA_WLAN_VENDOR_ATTR_FW_STATE_ACTIVE,
+	QCA_WLAN_VENDOR_ATTR_FW_STATE_MAX
 };
 
 /**
@@ -6234,6 +6328,35 @@ enum qca_wlan_vendor_attr_spectral_scan {
 	 * qca_wlan_vendor_attr_spectral_scan_request_type.
 	 */
 	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_REQUEST_TYPE = 23,
+	/* This specifies the frequency span over which spectral
+	 * scan would be carried out. Its value depends on the
+	 * value of QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_MODE and
+	 * the relation is as follows.
+	 * QCA_WLAN_VENDOR_SPECTRAL_SCAN_MODE_NORMAL
+	 *    Not applicable. Spectral scan would happen in the
+	 *    operating span.
+	 * QCA_WLAN_VENDOR_SPECTRAL_SCAN_MODE_AGILE
+	 *    Center frequency (in MHz) of the span of interest or
+	 *    for convenience, center frequency (in MHz) of any channel
+	 *    in the span of interest. If agile spectral scan is initiated
+	 *    without setting a valid frequency it returns the error code
+	 *    (QCA_WLAN_VENDOR_SPECTRAL_SCAN_ERR_PARAM_NOT_INITIALIZED).
+	 * u32 attribute.
+	 */
+	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_FREQUENCY = 24,
+	/* Spectral scan mode. u32 attribute.
+	 * It uses values defined in enum qca_wlan_vendor_spectral_scan_mode.
+	 * If this attribute is not present, it is assumed to be
+	 * normal mode (QCA_WLAN_VENDOR_SPECTRAL_SCAN_MODE_NORMAL).
+	 */
+	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_MODE = 25,
+	/* Spectral scan error code. u32 attribute.
+	 * It uses values defined in enum
+	 * qca_wlan_vendor_spectral_scan_error_code.
+	 * This attribute is included only in failure scenarios.
+	 */
+	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_ERROR_CODE = 26,
+
 	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_MAX =
 		QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_AFTER_LAST - 1,
@@ -6290,6 +6413,29 @@ enum qca_wlan_vendor_attr_spectral_cap {
 	 * qca_wlan_vendor_spectral_scan_cap_hw_gen.
 	 */
 	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_HW_GEN = 5,
+	/* Spectral bin scaling formula ID. u16 attribute.
+	 * It uses values defined in enum
+	 * qca_wlan_vendor_spectral_scan_cap_formula_id.
+	 */
+	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_FORMULA_ID = 6,
+	/* Spectral bin scaling param - low level offset.
+	 * s16 attribute.
+	 */
+	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_LOW_LEVEL_OFFSET = 7,
+	/* Spectral bin scaling param - high level offset.
+	 * s16 attribute.
+	 */
+	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_HIGH_LEVEL_OFFSET = 8,
+	/* Spectral bin scaling param - RSSI threshold.
+	 * s16 attribute.
+	 */
+	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_RSSI_THR = 9,
+	/* Spectral bin scaling param - default AGC max gain.
+	 * u8 attribute.
+	 */
+	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_DEFAULT_AGC_MAX_GAIN = 10,
+	/* Flag attribute to indicate agile spectral scan capability */
+	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_AGILE_SPECTRAL = 11,
 
 	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_MAX =
@@ -6306,6 +6452,13 @@ enum qca_wlan_vendor_attr_spectral_scan_status {
 	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_STATUS_IS_ENABLED = 1,
 	/* Flag attribute to indicate whether spectral scan is in progress*/
 	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_STATUS_IS_ACTIVE = 2,
+	/* Spectral scan mode. u32 attribute.
+	 * It uses values defined in enum qca_wlan_vendor_spectral_scan_mode.
+	 * If this attribute is not present, normal mode
+	 * (QCA_WLAN_VENDOR_SPECTRAL_SCAN_MODE_NORMAL is assumed to be
+	 * requested.
+	 */
+	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_STATUS_MODE = 3,
 
 	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_STATUS_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_STATUS_MAX =
@@ -6367,6 +6520,43 @@ enum qca_wlan_vendor_attr_spectral_scan_request_type {
 };
 
 /**
+ * qca_wlan_vendor_spectral_scan_mode: Attribute values for
+ * QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_MODE in the vendor subcmd
+ * QCA_NL80211_VENDOR_SUBCMD_SPECTRAL_SCAN_START and
+ * QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_STATUS_MODE in the vendor subcmd
+ * QCA_NL80211_VENDOR_SUBCMD_SPECTRAL_SCAN_GET_STATUS. This represents the
+ * spectral scan modes.
+ * @QCA_WLAN_VENDOR_SPECTRAL_SCAN_MODE_NORMAL: Normal spectral scan:
+ * spectral scan in the current operating span.
+ * @QCA_WLAN_VENDOR_SPECTRAL_SCAN_MODE_AGILE: Agile spectral scan:
+ * spectral scan in the configured agile span.
+ */
+enum qca_wlan_vendor_spectral_scan_mode {
+	QCA_WLAN_VENDOR_SPECTRAL_SCAN_MODE_NORMAL = 0,
+	QCA_WLAN_VENDOR_SPECTRAL_SCAN_MODE_AGILE = 1,
+};
+
+/**
+ * qca_wlan_vendor_spectral_scan_error_code: Attribute values for
+ * QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_ERROR_CODE in the vendor subcmd
+ * QCA_NL80211_VENDOR_SUBCMD_SPECTRAL_SCAN_START.
+ * @QCA_WLAN_VENDOR_SPECTRAL_SCAN_ERR_PARAM_UNSUPPORTED: Changing the value
+ * of a parameter is not supported.
+ * @QCA_WLAN_VENDOR_SPECTRAL_SCAN_ERR_MODE_UNSUPPORTED: Requested spectral scan
+ * mode is not supported.
+ * @QCA_WLAN_VENDOR_SPECTRAL_SCAN_ERR_PARAM_INVALID_VALUE: A parameter
+ * has invalid value.
+ * @QCA_WLAN_VENDOR_SPECTRAL_SCAN_ERR_PARAM_NOT_INITIALIZED: A parameter
+ * is not initialized.
+ */
+enum qca_wlan_vendor_spectral_scan_error_code {
+	QCA_WLAN_VENDOR_SPECTRAL_SCAN_ERR_PARAM_UNSUPPORTED = 0,
+	QCA_WLAN_VENDOR_SPECTRAL_SCAN_ERR_MODE_UNSUPPORTED = 1,
+	QCA_WLAN_VENDOR_SPECTRAL_SCAN_ERR_PARAM_INVALID_VALUE = 2,
+	QCA_WLAN_VENDOR_SPECTRAL_SCAN_ERR_PARAM_NOT_INITIALIZED = 3,
+};
+
+/**
  * qca_wlan_vendor_spectral_scan_cap_hw_gen: Attribute values for
  * QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_HW_GEN to the vendor subcmd
  * QCA_NL80211_VENDOR_SUBCMD_SPECTRAL_SCAN_GET_CAP_INFO. This represents the
@@ -6379,6 +6569,20 @@ enum qca_wlan_vendor_spectral_scan_cap_hw_gen {
 	QCA_WLAN_VENDOR_SPECTRAL_SCAN_CAP_HW_GEN_1 = 0,
 	QCA_WLAN_VENDOR_SPECTRAL_SCAN_CAP_HW_GEN_2 = 1,
 	QCA_WLAN_VENDOR_SPECTRAL_SCAN_CAP_HW_GEN_3 = 2,
+};
+
+/**
+ * qca_wlan_vendor_spectral_scan_cap_formula_id: Attribute values for
+ * QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_FORMULA_ID in the vendor subcmd
+ * QCA_NL80211_VENDOR_SUBCMD_SPECTRAL_SCAN_GET_CAP_INFO. This represents the
+ * Spectral bin scaling formula ID.
+ * @QCA_WLAN_VENDOR_SPECTRAL_SCAN_CAP_NO_SCALING: No scaling
+ * @QCA_WLAN_VENDOR_SPECTRAL_SCAN_CAP_AGC_GAIN_RSSI_CORR_BASED: AGC gain
+ * and RSSI threshold based formula.
+ */
+enum qca_wlan_vendor_spectral_scan_cap_formula_id {
+	QCA_WLAN_VENDOR_SPECTRAL_SCAN_CAP_NO_SCALING = 0,
+	QCA_WLAN_VENDOR_SPECTRAL_SCAN_CAP_AGC_GAIN_RSSI_CORR_BASED = 1,
 };
 
 /**
@@ -6669,6 +6873,89 @@ enum qca_wlan_he_ltf_cfg {
 	QCA_WLAN_HE_LTF_4X = 3,
 };
 
+/**
+ * enum qca_wlan_he_mac_padding_dur - HE trigger frame MAC padding duration
+ *
+ * Indicates the HE trigger frame MAC padding duration value.
+ *
+ * @QCA_WLAN_HE_NO_ADDITIONAL_PROCESS_TIME: no additional time required to
+ * process the trigger frame.
+ * @QCA_WLAN_HE_8US_OF_PROCESS_TIME: indicates the 8us of processing time for
+ * trigger frame.
+ * @QCA_WLAN_HE_16US_OF_PROCESS_TIME: indicates the 16us of processing time for
+ * trigger frame.
+ */
+enum qca_wlan_he_mac_padding_dur {
+	QCA_WLAN_HE_NO_ADDITIONAL_PROCESS_TIME = 0,
+	QCA_WLAN_HE_8US_OF_PROCESS_TIME = 1,
+	QCA_WLAN_HE_16US_OF_PROCESS_TIME = 2,
+};
+
+/**
+ * enum qca_wlan_he_om_ctrl_ch_bw - HE OM control field BW configuration
+ *
+ * Indicates the HE Operating mode control channel width setting value.
+ *
+ * @QCA_WLAN_HE_OM_CTRL_BW_20M: Primary 20 MHz
+ * @QCA_WLAN_HE_OM_CTRL_BW_40M: Primary 40 MHz
+ * @QCA_WLAN_HE_OM_CTRL_BW_80M: Primary 80 MHz
+ * @QCA_WLAN_HE_OM_CTRL_BW_160M: 160 MHz and 80+80 MHz
+ */
+enum qca_wlan_he_om_ctrl_ch_bw {
+	QCA_WLAN_HE_OM_CTRL_BW_20M = 0,
+	QCA_WLAN_HE_OM_CTRL_BW_40M = 1,
+	QCA_WLAN_HE_OM_CTRL_BW_80M = 2,
+	QCA_WLAN_HE_OM_CTRL_BW_160M = 3,
+};
+
+/**
+ * enum qca_wlan_vendor_attr_he_omi_tx: Represents attributes for
+ * HE operating mode control transmit request. These attributes are
+ * sent as part of QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_OMI_TX and
+ * QCA_NL80211_VENDOR_SUBCMD_WIFI_TEST_CONFIGURATION.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_HE_OMI_RX_NSS: Mandatory 8-bit unsigned value
+ * indicates the maximum number of spatial streams, NSS, that the STA
+ * supports in reception for PPDU bandwidths less than or equal to 80 MHz
+ * and is set to NSS - 1.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_HE_OMI_CH_BW: Mandatory 8-bit unsigned value
+ * indicates the operating channel width supported by the STA for both
+ * reception and transmission. Uses enum qca_wlan_he_om_ctrl_ch_bw values.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_HE_OMI_ULMU_DISABLE: Mandatory 8-bit unsigned value
+ * indicates the all trigger based UL MU operations by the STA.
+ * 0 - UL MU operations are enabled by the STA.
+ * 1 - All triggered UL MU transmissions are suspended by the STA.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_HE_OMI_TX_NSTS: Mandatory 8-bit unsigned value
+ * indicates the maximum number of space-time streams, NSTS, that
+ * the STA supports in transmission and is set to NSTS - 1.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_HE_OMI_ULMU_DATA_DISABLE: 8-bit unsigned value
+ * combined with the UL MU Disable subfield and the recipient's setting
+ * of the OM Control UL MU Data Disable RX Support subfield in the HE MAC
+ * capabilities to determine which HE TB PPDUs are possible by the
+ * STA to transmit.
+ * 0 - UL MU data operations are enabled by the STA.
+ * 1 - Determine which HE TB PPDU types are allowed by the STA if UL MU disable
+ * bit is not set, else UL MU Tx is suspended.
+ *
+ */
+enum qca_wlan_vendor_attr_he_omi_tx {
+	QCA_WLAN_VENDOR_ATTR_HE_OMI_INVALID = 0,
+	QCA_WLAN_VENDOR_ATTR_HE_OMI_RX_NSS = 1,
+	QCA_WLAN_VENDOR_ATTR_HE_OMI_CH_BW = 2,
+	QCA_WLAN_VENDOR_ATTR_HE_OMI_ULMU_DISABLE = 3,
+	QCA_WLAN_VENDOR_ATTR_HE_OMI_TX_NSTS = 4,
+	QCA_WLAN_VENDOR_ATTR_HE_OMI_ULMU_DATA_DISABLE = 5,
+
+	/* keep last */
+	QCA_WLAN_VENDOR_ATTR_HE_OMI_AFTER_LAST,
+	QCA_WLAN_VENDOR_ATTR_HE_OMI_MAX =
+	QCA_WLAN_VENDOR_ATTR_HE_OMI_AFTER_LAST - 1,
+};
+
 /* Attributes for data used by
  * QCA_NL80211_VENDOR_SUBCMD_WIFI_TEST_CONFIGURATION
  */
@@ -6729,10 +7016,10 @@ enum qca_wlan_vendor_attr_wifi_test_config {
 	 */
 	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_ADD_DEL_BA_SESSION = 7,
 
-	/* 8-bit unsigned value to configure the buffer size in addba
+	/* 16-bit unsigned value to configure the buffer size in addba
 	 * request and response frames.
 	 * This attribute is used to configure the testbed device.
-	 * The range of the value is 0 to 255
+	 * The range of the value is 0 to 256.
 	 */
 	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_ADDBA_BUFF_SIZE = 8,
 
@@ -6768,6 +7055,184 @@ enum qca_wlan_vendor_attr_wifi_test_config {
 	 */
 	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_ENABLE_TX_BEAMFORMEE = 13,
 
+	/* 8-bit unsigned value to configure the tx beamformee number of
+	 * space-time streams.
+	 * This attribute is used to configure the testbed device.
+	 * The range of the value is 0 to 8
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_TX_BEAMFORMEE_NSTS = 14,
+
+	/* 8-bit unsigned value to configure the MU EDCA params for given AC
+	 * This attribute is used to configure the testbed device.
+	 * Uses the enum qca_wlan_ac_type values.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_MU_EDCA_AC = 15,
+
+	/* 8-bit unsigned value to configure the MU EDCA AIFSN for given AC
+	 * To configure MU EDCA AIFSN value, MU EDCA access category value
+	 * is required to process the command.
+	 * This attribute is used to configure the testbed device.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_MU_EDCA_AIFSN = 16,
+
+	/* 8-bit unsigned value to configure the MU EDCA ECW min value for
+	 * given AC.
+	 * To configure MU EDCA ECW min value, MU EDCA access category value
+	 * is required to process the command.
+	 * This attribute is used to configure the testbed device.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_MU_EDCA_ECWMIN = 17,
+
+	/* 8-bit unsigned value to configure the MU EDCA ECW max value for
+	 * given AC.
+	 * To configure MU EDCA ECW max value, MU EDCA access category value
+	 * is required to process the command.
+	 * This attribute is used to configure the testbed device.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_MU_EDCA_ECWMAX = 18,
+
+	/* 8-bit unsigned value to configure the MU EDCA timer for given AC
+	 * To configure MU EDCA timer value, MU EDCA access category value
+	 * is required to process the command.
+	 * This attribute is used to configure the testbed device.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_MU_EDCA_TIMER = 19,
+
+	/* 8-bit unsigned value to configure the HE trigger frame MAC padding
+	 * duration.
+	 * This attribute is used to configure the testbed device.
+	 * Uses the enum qca_wlan_he_mac_padding_dur values.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_MAC_PADDING_DUR = 20,
+
+	/* 8-bit unsigned value to override the MU EDCA params to defaults
+	 * regardless of the AP beacon MU EDCA params. If it is enabled use
+	 * the default values else use the MU EDCA params from AP beacon.
+	 * This attribute is used to configure the testbed device.
+	 * 1 - enable override, 0 - disable.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_OVERRIDE_MU_EDCA = 21,
+
+	/* 8-bit unsigned value to configure the support for receiving
+	 * an MPDU that contains an operating mode control subfield.
+	 * This attribute is used to configure the testbed device.
+	 * 1-enable, 0-disable.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_OM_CTRL_SUPP = 22,
+
+	/* Nested attribute values required to setup the TWT session.
+	 * enum qca_wlan_vendor_attr_twt_setup provides the necessary
+	 * information to set up the session. It contains broadcast flags,
+	 * set_up flags, trigger value, flow type, flow ID, wake interval
+	 * exponent, protection, target wake time, wake duration, wake interval
+	 * mantissa. These nested attributes are used to setup a host triggered
+	 * TWT session.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_TWT_SETUP = 23,
+
+	/* This nested attribute is used to terminate the current TWT session.
+	 * It does not currently carry any attributes.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_TWT_TERMINATE = 24,
+
+	/* This nested attribute is used to suspend the current TWT session.
+	 * It does not currently carry any attributes.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_TWT_SUSPEND = 25,
+
+	/* Nested attribute values to indicate the request for resume.
+	 * This attribute is used to resume the TWT session.
+	 * enum qca_wlan_vendor_attr_twt_resume provides the necessary
+	 * parameters required to resume the TWT session.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_TWT_RESUME = 26,
+
+	/* 8-bit unsigned value to set the HE operating mode control
+	 * (OM CTRL) Channel Width subfield.
+	 * The Channel Width subfield indicates the operating channel width
+	 * supported by the STA for both reception and transmission.
+	 * Uses the enum qca_wlan_he_om_ctrl_ch_bw values.
+	 * This setting is cleared with the
+	 * QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_CLEAR_HE_OM_CTRL_CONFIG
+	 * flag attribute to reset defaults.
+	 * This attribute is used to configure the testbed device.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_OM_CTRL_BW = 27,
+
+	/* 8-bit unsigned value to configure the number of spatial
+	 * streams in HE operating mode control field.
+	 * This setting is cleared with the
+	 * QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_CLEAR_HE_OM_CTRL_CONFIG
+	 * flag attribute to reset defaults.
+	 * This attribute is used to configure the testbed device.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_OM_CTRL_NSS = 28,
+
+	/* Flag attribute to configure the UL MU disable bit in
+	 * HE operating mode control field.
+	 * This setting is cleared with the
+	 * QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_CLEAR_HE_OM_CTRL_CONFIG
+	 * flag attribute to reset defaults.
+	 * This attribute is used to configure the testbed device.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_OM_CTRL_UL_MU_DISABLE = 29,
+
+	/* Flag attribute to clear the previously set HE operating mode
+	 * control field configuration.
+	 * This attribute is used to configure the testbed device to reset
+	 * defaults to clear any previously set HE operating mode control
+	 * field configuration.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_CLEAR_HE_OM_CTRL_CONFIG = 30,
+
+	/* 8-bit unsigned value to configure HE single user PPDU
+	 * transmission. By default this setting is disabled and it
+	 * is disabled in the reset defaults of the device configuration.
+	 * This attribute is used to configure the testbed device.
+	 * 1-enable, 0-disable
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_TX_SUPPDU = 31,
+
+	/* 8-bit unsigned value to configure action frame transmission
+	 * in HE trigger based PPDU transmission.
+	 * By default this setting is disabled and it is disabled in
+	 * the reset defaults of the device configuration.
+	 * This attribute is used to configure the testbed device.
+	 * 1-enable, 0-disable
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_ACTION_TX_TB_PPDU = 32,
+
+	/* Nested attribute to indicate HE operating mode control field
+	 * transmission. It contains operating mode control field Nss,
+	 * channel bandwidth, Tx Nsts and UL MU disable attributes.
+	 * These nested attributes are used to send HE operating mode control
+	 * with configured values.
+	 * Uses the enum qca_wlan_vendor_attr_he_omi_tx attributes.
+	 * This attribute is used to configure the testbed device.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_OMI_TX = 33,
+
+	/* 8-bit unsigned value to configure +HTC_HE support to indicate the
+	 * support for the reception of a frame that carries an HE variant
+	 * HT Control field.
+	 * This attribute is used to configure the testbed device.
+	 * 1-enable, 0-disable
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_HE_HTC_HE_SUPP = 34,
+
+	/* 8-bit unsigned value to configure VHT support in 2.4G band.
+	 * This attribute is used to configure the testbed device.
+	 * 1-enable, 0-disable
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_ENABLE_2G_VHT = 35,
+
+	/* 8-bit unsigned value to configure HE testbed defaults.
+	 * This attribute is used to configure the testbed device.
+	 * 1-set the device HE capabilities to testbed defaults.
+	 * 0-reset the device HE capabilities to supported config.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_SET_HE_TESTBED_DEFAULTS = 36,
+
 	/* 8-bit unsigned value to configure twt request support.
 	 * This attribute is used to configure the testbed device.
 	 * 1-enable, 0-disable.
@@ -6778,6 +7243,128 @@ enum qca_wlan_vendor_attr_wifi_test_config {
 	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_MAX =
 	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_AFTER_LAST - 1,
+};
+
+/**
+ * enum qca_wlan_vendor_attr_twt_setup: Represents attributes for
+ * TWT (Target Wake Time) setup request. These attributes are sent as part of
+ * %QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_TWT_SETUP and
+ * %QCA_NL80211_VENDOR_SUBCMD_WIFI_TEST_CONFIGURATION.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_SETUP_BCAST: Flag attribute.
+ * Disable (flag attribute not present) - Individual TWT
+ * Enable (flag attribute present) - Broadcast TWT.
+ * Individual means the session is between the STA and the AP.
+ * This session is established using a separate negotiation between
+ * STA and AP.
+ * Broadcast means the session is across multiple STAs and an AP. The
+ * configuration parameters are announced in Beacon frames by the AP.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_SETUP_REQ_TYPE: Required (u8).
+ * Unsigned 8-bit qca_wlan_vendor_twt_setup_req_type to
+ * specify the TWT request type
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_SETUP_TRIGGER: Flag attribute
+ * Enable (flag attribute present) - TWT with trigger support.
+ * Disable (flag attribute not present) - TWT without trigger support.
+ * Trigger means the AP will send the trigger frame to allow STA to send data.
+ * Without trigger, the STA will wait for the MU EDCA timer before
+ * transmitting the data.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_TYPE: Required (u8)
+ * 0 - Announced TWT - In this mode, STA may skip few service periods to
+ * save more power. If STA wants to wake up, it will send a PS-POLL/QoS
+ * NULL frame to AP.
+ * 1 - Unannounced TWT - The STA will wakeup during every SP.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID: Optional (u8)
+ * Flow ID is the unique identifier for each TWT session.
+ * Currently this is not required and dialog ID will be set to zero.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_INTVL_EXP: Required (u8)
+ * This attribute (exp) is used along with the mantissa to derive the
+ * wake interval using the following formula:
+ * pow(2,exp) = wake_intvl_us/wake_intvl_mantis
+ * Wake interval is the interval between 2 successive SP.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_SETUP_PROTECTION: Flag attribute
+ * Enable (flag attribute present) - Protection required.
+ * Disable (flag attribute not present) - Protection not required.
+ * If protection is enabled, then the AP will use protection
+ * mechanism using RTS/CTS to self to reserve the airtime.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_TIME: Optional (u32)
+ * This attribute is used as the SP offset which is the offset from
+ * TSF after which the wake happens. The units are in microseconds. If
+ * this attribute is not provided, then the value will be set to zero.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_DURATION: Required (u32)
+ * This is the duration of the service period. The units are in TU.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_INTVL_MANTISSA: Required (u32)
+ * This attribute is used to configure wake interval mantissa.
+ * The units are in TU.
+ */
+enum qca_wlan_vendor_attr_twt_setup {
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_INVALID = 0,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_BCAST = 1,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_REQ_TYPE = 2,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_TRIGGER = 3,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_TYPE = 4,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID = 5,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_INTVL_EXP = 6,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_PROTECTION = 7,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_TIME = 8,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_DURATION = 9,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_INTVL_MANTISSA = 10,
+
+	/* keep last */
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_AFTER_LAST,
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_MAX =
+	QCA_WLAN_VENDOR_ATTR_TWT_SETUP_AFTER_LAST - 1,
+};
+
+/**
+ * enum qca_wlan_vendor_attr_twt_resume: Represents attributes for
+ * TWT (Target Wake Time) resume request. These attributes are sent as part of
+ * %QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_TWT_RESUME and
+ * %QCA_NL80211_VENDOR_SUBCMD_WIFI_TEST_CONFIGURATION.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_RESUME_NEXT_TWT: Optional (u8)
+ * This attribute is used as the SP offset which is the offset from
+ * TSF after which the wake happens. The units are in microseconds.
+ * If this attribute is not provided, then the value will be set to
+ * zero.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_TWT_RESUME_NEXT_TWT_SIZE: Required (u32)
+ * This attribute represents the next TWT subfield size.
+ */
+enum qca_wlan_vendor_attr_twt_resume {
+	QCA_WLAN_VENDOR_ATTR_TWT_RESUME_INVALID = 0,
+	QCA_WLAN_VENDOR_ATTR_TWT_RESUME_NEXT_TWT = 1,
+	QCA_WLAN_VENDOR_ATTR_TWT_RESUME_NEXT_TWT_SIZE = 2,
+
+	/* keep last */
+	QCA_WLAN_VENDOR_ATTR_TWT_RESUME_AFTER_LAST,
+	QCA_WLAN_VENDOR_ATTR_TWT_RESUME_MAX =
+	QCA_WLAN_VENDOR_ATTR_TWT_RESUME_AFTER_LAST - 1,
+};
+
+/**
+ * enum qca_wlan_vendor_twt_setup_req_type - Required (u8)
+ * Represents the setup type being requested for TWT.
+ * @QCA_WLAN_VENDOR_TWT_SETUP_REQUEST: STA is not specifying all the TWT
+ * parameters but relying on AP to fill the parameters during the negotiation.
+ * @QCA_WLAN_VENDOR_TWT_SETUP_SUGGEST: STA will provide all the suggested
+ * values which the AP may accept or AP may provide alternative parameters
+ * which the STA may accept.
+ * @QCA_WLAN_VENDOR_TWT_SETUP_DEMAND: STA is not willing to accept any
+ * alternate parameters than the requested ones.
+ */
+enum qca_wlan_vendor_twt_setup_req_type {
+	QCA_WLAN_VENDOR_TWT_SETUP_REQUEST = 1,
+	QCA_WLAN_VENDOR_TWT_SETUP_SUGGEST = 2,
+	QCA_WLAN_VENDOR_TWT_SETUP_DEMAND = 3,
 };
 
 /**
@@ -7371,32 +7958,14 @@ enum qca_wlan_vendor_attr_beacon_reporting_params {
  * enum qca_wlan_vendor_attr_oem_data_params - Used by the vendor command
  * QCA_NL80211_VENDOR_SUBCMD_OEM_DATA.
  *
- * @QCA_WLAN_VENDOR_ATTR_OEM_DATA_CMD_DATA: This NLA_BINARY attribute is
- * used to set/query the data to/from the firmware. On query, the same
- * attribute is used to carry the respective data in the reply sent by the
- * driver to userspace. The request to set/query the data and the format of the
- * respective data from the firmware are embedded in the attribute. The
- * maximum size of the attribute payload is 1024 bytes.
- *
- * @QCA_WLAN_VENDOR_ATTR_OEM_DEVICE_INFO: The binary blob will be routed
- * based on this field. This optional attribute is included to specify whether
- * the device type is a virtual device or a physical device for the command.
- * This attribute can be omitted for a virtual device (default) command.
- * This u8 attribute is used to carry information for the device type using
- * values defined by enum qca_vendor_oem_device_type.
- *
- * Userspace has to set the QCA_WLAN_VENDOR_ATTR_OEM_DATA_RESPONSE_EXPECTED
- * attribute when the data is queried from the firmware.
- *
- * @QCA_WLAN_VENDOR_ATTR_OEM_DATA_RESPONSE_EXPECTED: This NLA_FLAG attribute
- * is set when the userspace queries data from the firmware. This attribute
- * should not be set when userspace sets the OEM data to the firmware.
+ * @QCA_WLAN_VENDOR_ATTR_OEM_DATA_CMD_DATA: The binary blob for the vendor
+ * command QCA_NL80211_VENDOR_SUBCMD_OEM_DATA are carried through this
+ * attribute.
+ * NLA_BINARY attribute, the max size is 1024 bytes.
  */
 enum qca_wlan_vendor_attr_oem_data_params {
 	QCA_WLAN_VENDOR_ATTR_OEM_DATA_INVALID = 0,
 	QCA_WLAN_VENDOR_ATTR_OEM_DATA_CMD_DATA = 1,
-	QCA_WLAN_VENDOR_ATTR_OEM_DEVICE_INFO = 2,
-	QCA_WLAN_VENDOR_ATTR_OEM_DATA_RESPONSE_EXPECTED = 3,
 
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_OEM_DATA_PARAMS_AFTER_LAST,
@@ -7404,4 +7973,102 @@ enum qca_wlan_vendor_attr_oem_data_params {
 		QCA_WLAN_VENDOR_ATTR_OEM_DATA_PARAMS_AFTER_LAST - 1
 };
 
+/**
+ * enum qca_disconnect_reason_codes - Specifies driver disconnect reason codes.
+ * Used when the driver triggers the STA to disconnect from the AP.
+ *
+ * @QCA_DISCONNECT_REASON_UNSPECIFIED: The host driver triggered the
+ * disconnection with the AP due to unspecified reasons.
+ *
+ * @QCA_DISCONNECT_REASON_INTERNAL_ROAM_FAILURE: The host driver triggered the
+ * disconnection with the AP due to a roaming failure. This roaming is triggered
+ * internally (host driver/firmware).
+ *
+ * @QCA_DISCONNECT_REASON_EXTERNAL_ROAM_FAILURE: The driver disconnected from
+ * the AP when the user/external triggered roaming fails.
+ *
+ * @QCA_DISCONNECT_REASON_GATEWAY_REACHABILITY_FAILURE: This reason code is used
+ * by the host driver whenever gateway reachability failure is detected and the
+ * driver disconnects with AP.
+ *
+ * @QCA_DISCONNECT_REASON_UNSUPPORTED_CHANNEL_CSA: The driver disconnected from
+ * the AP on a channel switch announcement from it with an unsupported channel.
+ *
+ * @QCA_DISCONNECT_REASON_OPER_CHANNEL_DISABLED_INDOOR: On a concurrent AP start
+ * with indoor channels disabled and if the STA is connected on one of these
+ * disabled channels, the host driver disconnected the STA with this reason
+ * code.
+ *
+ * @QCA_DISCONNECT_REASON_OPER_CHANNEL_USER_DISABLED: Disconnection due to an
+ * explicit request from the user to disable the current operating channel.
+ *
+ * @QCA_DISCONNECT_REASON_DEVICE_RECOVERY: STA disconnected from the AP due to
+ * the internal host driver/firmware recovery.
+ *
+ * @QCA_DISCONNECT_REASON_KEY_TIMEOUT: The driver triggered the disconnection on
+ * a timeout for the key installations from the user space.
+ *
+ * @QCA_DISCONNECT_REASON_OPER_CHANNEL_BAND_CHANGE: The dDriver disconnected the
+ * STA on a band change request from the user space to a different band from the
+ * current operation channel/band.
+ *
+ * @QCA_DISCONNECT_REASON_IFACE_DOWN: The STA disconnected from the AP on an
+ * interface down trigger from the user space.
+ *
+ * @QCA_DISCONNECT_REASON_PEER_XRETRY_FAIL: The host driver disconnected the
+ * STA on getting continuous transmission failures for multiple Data frames.
+ *
+ * @QCA_DISCONNECT_REASON_PEER_INACTIVITY: The STA does a keep alive
+ * notification to the AP by transmitting NULL/G-ARP frames. This disconnection
+ * represents inactivity from AP on such transmissions.
+
+ * @QCA_DISCONNECT_REASON_SA_QUERY_TIMEOUT: This reason code is used on
+ * disconnection when SA Query times out (AP does not respond to SA Query).
+ *
+ * @QCA_DISCONNECT_REASON_BEACON_MISS_FAILURE: The host driver disconnected the
+ * STA on missing the beacons continuously from the AP.
+ *
+ * @QCA_DISCONNECT_REASON_CHANNEL_SWITCH_FAILURE: Disconnection due to STA not
+ * able to move to the channel mentioned by the AP in CSA.
+ *
+ * @QCA_DISCONNECT_REASON_USER_TRIGGERED: User triggered disconnection.
+ */
+enum qca_disconnect_reason_codes {
+	QCA_DISCONNECT_REASON_UNSPECIFIED = 0,
+	QCA_DISCONNECT_REASON_INTERNAL_ROAM_FAILURE = 1,
+	QCA_DISCONNECT_REASON_EXTERNAL_ROAM_FAILURE = 2,
+	QCA_DISCONNECT_REASON_GATEWAY_REACHABILITY_FAILURE = 3,
+	QCA_DISCONNECT_REASON_UNSUPPORTED_CHANNEL_CSA = 4,
+	QCA_DISCONNECT_REASON_OPER_CHANNEL_DISABLED_INDOOR = 5,
+	QCA_DISCONNECT_REASON_OPER_CHANNEL_USER_DISABLED = 6,
+	QCA_DISCONNECT_REASON_DEVICE_RECOVERY = 7,
+	QCA_DISCONNECT_REASON_KEY_TIMEOUT = 8,
+	QCA_DISCONNECT_REASON_OPER_CHANNEL_BAND_CHANGE = 9,
+	QCA_DISCONNECT_REASON_IFACE_DOWN = 10,
+	QCA_DISCONNECT_REASON_PEER_XRETRY_FAIL = 11,
+	QCA_DISCONNECT_REASON_PEER_INACTIVITY = 12,
+	QCA_DISCONNECT_REASON_SA_QUERY_TIMEOUT = 13,
+	QCA_DISCONNECT_REASON_BEACON_MISS_FAILURE = 14,
+	QCA_DISCONNECT_REASON_CHANNEL_SWITCH_FAILURE = 15,
+	QCA_DISCONNECT_REASON_USER_TRIGGERED = 16,
+};
+
+/**
+ * enum qca_wlan_vendor_attr_driver_disconnect_reason - Defines attributes
+ * used by %QCA_NL80211_VENDOR_SUBCMD_DRIVER_DISCONNECT_REASON vendor command.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASCON_CODE: u32 attribute.
+ * This attribute represents the driver specific reason codes (local
+ * driver/firmware initiated reasons for disconnection) defined
+ * in enum qca_disconnect_reason_codes.
+ */
+enum qca_wlan_vendor_attr_driver_disconnect_reason {
+	QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASON_INVALID = 0,
+	QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASCON_CODE = 1,
+
+	/* keep last */
+	QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASON_AFTER_LAST,
+	QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASON_MAX =
+	QCA_WLAN_VENDOR_ATTR_DRIVER_DISCONNECT_REASON_AFTER_LAST - 1,
+};
 #endif
