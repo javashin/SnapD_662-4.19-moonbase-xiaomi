@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, 2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -39,7 +39,7 @@
  * Return: 1 - if channel switch is happening on any session.
  *         0 - if channel switch is not happening.
  **/
-uint8_t lim_is_chan_switch_running(tpAniSirGlobal mac_ctx)
+uint8_t lim_is_chan_switch_running(struct mac_context *mac_ctx)
 {
 	uint8_t i;
 
@@ -58,7 +58,7 @@ uint8_t lim_is_chan_switch_running(tpAniSirGlobal mac_ctx)
  * Return: true - if in MCC.
  *         false - Not in MCC
  **/
-uint8_t lim_is_in_mcc(tpAniSirGlobal mac_ctx)
+uint8_t lim_is_in_mcc(struct mac_context *mac_ctx)
 {
 	uint8_t i;
 	uint8_t chan = 0;
@@ -89,7 +89,7 @@ uint8_t lim_is_in_mcc(tpAniSirGlobal mac_ctx)
  *
  * Return: true - Number of stations active on all sessions.
  **/
-uint8_t pe_get_current_stas_count(tpAniSirGlobal mac_ctx)
+uint8_t pe_get_current_stas_count(struct mac_context *mac_ctx)
 {
 	uint8_t i;
 	uint8_t stacount = 0;

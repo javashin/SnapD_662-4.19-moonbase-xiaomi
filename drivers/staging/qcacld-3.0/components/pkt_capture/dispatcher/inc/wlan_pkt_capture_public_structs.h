@@ -34,14 +34,6 @@ enum pkt_capture_mode {
 };
 
 /**
- * struct pkt_capture_cfg - packet capture cfg to store ini values
- * @pkt_capture_mode: packet capture mode
- */
-struct pkt_capture_cfg {
-	enum pkt_capture_mode pkt_capture_mode;
-};
-
-/**
  * struct mgmt_offload_event_params - Management offload event params
  * @tsf_l32: The lower 32 bits of the TSF
  * @chan_freq: channel frequency in MHz

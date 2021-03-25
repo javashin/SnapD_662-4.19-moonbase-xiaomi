@@ -131,16 +131,6 @@ QDF_STATUS
 pkt_capture_psoc_destroy_notification(struct wlan_objmgr_psoc *psoc, void *arg);
 
 /**
- * ucfg_pkt_capture_psoc_config(): API to update the psoc user configurations
- * @psoc: objmgr psoc handle
- * @cfg: packet capture psoc configurations
- *
- * Return: QDF_STATUS
- */
-QDF_STATUS pkt_capture_psoc_config(struct wlan_objmgr_psoc *psoc,
-				   struct pkt_capture_cfg *cfg);
-
-/**
  * pkt_capture_register_callbacks - Register packet capture callbacks
  * @vdev: pointer to wlan vdev object manager
  * @mon_cb: callback to call
@@ -190,10 +180,11 @@ uint32_t pkt_capture_drop_nbuf_list(qdf_nbuf_t buf_list);
 /**
  * pkt_capture_record_channel() - Update Channel Information
  * for packet capture mode
+ * @vdev: pointer to vdev
  *
  * Return: None
  */
-void pkt_capture_record_channel(void);
+void pkt_capture_record_channel(struct wlan_objmgr_vdev *vdev);
 
 /**
  * pkt_capture_mon() - Wrapper function to invoke mon cb

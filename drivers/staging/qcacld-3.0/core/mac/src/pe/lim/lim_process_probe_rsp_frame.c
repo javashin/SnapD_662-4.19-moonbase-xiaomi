@@ -52,7 +52,7 @@
  * Return: 0 on success, one on failure
  */
 static QDF_STATUS
-lim_validate_ie_information_in_probe_rsp_frame(tpAniSirGlobal mac_ctx,
+lim_validate_ie_information_in_probe_rsp_frame(struct mac_context *mac_ctx,
 				uint8_t *pRxPacketInfo)
 {
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
@@ -98,8 +98,8 @@ lim_validate_ie_information_in_probe_rsp_frame(tpAniSirGlobal mac_ctx,
  * Return: None
  */
 void
-lim_process_probe_rsp_frame(tpAniSirGlobal mac_ctx, uint8_t *rx_Packet_info,
-			    tpPESession session_entry)
+lim_process_probe_rsp_frame(struct mac_context *mac_ctx, uint8_t *rx_Packet_info,
+			    struct pe_session *session_entry)
 {
 	uint8_t *body;
 	uint32_t frame_len = 0;
@@ -115,7 +115,7 @@ lim_process_probe_rsp_frame(tpAniSirGlobal mac_ctx, uint8_t *rx_Packet_info,
 	}
 
 	probe_rsp = qdf_mem_malloc(sizeof(tSirProbeRespBeacon));
-	if (NULL == probe_rsp) {
+	if (!probe_rsp) {
 		pe_err("Unable to allocate memory");
 		return;
 	}
@@ -157,7 +157,7 @@ lim_process_probe_rsp_frame(tpAniSirGlobal mac_ctx, uint8_t *rx_Packet_info,
 		 * Either Beacon/probe response is required.
 		 * Hence store it in same buffer.
 		 */
-		if (session_entry->beacon != NULL) {
+		if (session_entry->beacon) {
 			qdf_mem_free(session_entry->beacon);
 			session_entry->beacon = NULL;
 			session_entry->bcnLen = 0;
@@ -166,7 +166,7 @@ lim_process_probe_rsp_frame(tpAniSirGlobal mac_ctx, uint8_t *rx_Packet_info,
 			WMA_GET_RX_PAYLOAD_LEN(rx_Packet_info);
 			session_entry->beacon =
 			qdf_mem_malloc(session_entry->bcnLen);
-		if (NULL == session_entry->beacon) {
+		if (!session_entry->beacon) {
 			pe_err("No Memory to store beacon");
 		} else {
 			/*
@@ -259,7 +259,7 @@ lim_process_probe_rsp_frame(tpAniSirGlobal mac_ctx, uint8_t *rx_Packet_info,
 				&probe_rsp->edcaParams,
 				session_entry) != QDF_STATUS_SUCCESS) {
 				pe_err("EDCA param process error");
-			} else if (sta_ds != NULL) {
+			} else if (sta_ds) {
 				/*
 				 * If needed, downgrade the
 				 * EDCA parameters

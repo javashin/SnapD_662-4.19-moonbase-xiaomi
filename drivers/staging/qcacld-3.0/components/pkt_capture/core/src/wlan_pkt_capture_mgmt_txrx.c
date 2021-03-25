@@ -29,7 +29,6 @@
 #include "wlan_lmac_if_api.h"
 #include "wlan_mgmt_txrx_utils_api.h"
 #include "wlan_utility.h"
-#include "wlan_reg_services_api.h"
 #include "cds_ieee80211_common.h"
 #include "wmi_unified.h"
 
@@ -178,7 +177,6 @@ static bool
 pkt_capture_is_rmf_enabled(struct wlan_objmgr_pdev *pdev,
 			   struct wlan_objmgr_psoc *psoc,
 			   uint8_t *addr)
-
 {
 	struct pkt_psoc_priv *psoc_priv;
 	struct wlan_objmgr_vdev *vdev;
@@ -222,18 +220,16 @@ pkt_capture_process_rmf_frame(struct wlan_objmgr_pdev *pdev,
 			      struct wlan_objmgr_psoc *psoc,
 			      qdf_nbuf_t nbuf)
 {
+	tpSirMacFrameCtl pfc = (tpSirMacFrameCtl)(qdf_nbuf_data(nbuf));
 	uint8_t mic_len, hdr_len, pdev_id;
 	struct ieee80211_frame *wh;
-	uint8_t type, sub_type;
 	uint8_t *orig_hdr;
 
 	wh = (struct ieee80211_frame *)qdf_nbuf_data(nbuf);
-	type = (wh)->i_fc[0] & IEEE80211_FC0_TYPE_MASK;
-	sub_type = (wh)->i_fc[0] & IEEE80211_FC0_SUBTYPE_MASK;
 
 	if (!QDF_IS_ADDR_BROADCAST(wh->i_addr1) &&
 	    !IEEE80211_IS_MULTICAST(wh->i_addr1)) {
-		if ((wh)->i_fc[1] & IEEE80211_FC1_WEP) {
+		if (pfc->wep) {
 			QDF_STATUS status;
 
 			orig_hdr = (uint8_t *)qdf_nbuf_data(nbuf);
@@ -269,8 +265,8 @@ pkt_capture_process_mgmt_tx_data(struct wlan_objmgr_pdev *pdev,
 {
 	struct mon_rx_status txrx_status = {0};
 	struct wlan_objmgr_psoc *psoc;
+	tpSirMacFrameCtl pfc = (tpSirMacFrameCtl)(qdf_nbuf_data(nbuf));
 	struct ieee80211_frame *wh;
-	uint8_t type, sub_type;
 
 	psoc = wlan_pdev_get_psoc(pdev);
 	if (!psoc) {
@@ -279,13 +275,11 @@ pkt_capture_process_mgmt_tx_data(struct wlan_objmgr_pdev *pdev,
 	}
 
 	wh = (struct ieee80211_frame *)qdf_nbuf_data(nbuf);
-	type = (wh)->i_fc[0] & IEEE80211_FC0_TYPE_MASK;
-	sub_type = (wh)->i_fc[0] & IEEE80211_FC0_SUBTYPE_MASK;
 
-	if ((type == IEEE80211_FC0_TYPE_MGT) &&
-	    (sub_type == MGMT_SUBTYPE_DISASSOC ||
-	     sub_type == MGMT_SUBTYPE_DEAUTH ||
-	     sub_type == MGMT_SUBTYPE_ACTION)) {
+	if ((pfc->type == IEEE80211_FC0_TYPE_MGT) &&
+	    (pfc->subType == SIR_MAC_MGMT_DISASSOC ||
+	     pfc->subType == SIR_MAC_MGMT_DEAUTH ||
+	     pfc->subType == SIR_MAC_MGMT_ACTION)) {
 		if (pkt_capture_is_rmf_enabled(pdev, psoc, wh->i_addr2)) {
 			QDF_STATUS status;
 
@@ -301,11 +295,14 @@ pkt_capture_process_mgmt_tx_data(struct wlan_objmgr_pdev *pdev,
 	txrx_status.chan_freq = params->chan_freq;
 	/* params->rate is in Kbps, convert into Mbps */
 	txrx_status.rate = (params->rate_kbps / 1000);
+	if (params->rssi == INVALID_RSSI_FOR_TX)
+		/* RSSI -128 is invalid rssi for TX, make it 0 here,
+		 * will be normalized during radiotap updation
+		 */
+		txrx_status.ant_signal_db = 0;
+	else
+		txrx_status.ant_signal_db = params->rssi;
 
-	/* RSSI is filled with TPC which will be normalized
-	 * during radiotap updation, so add 96 here
-	 */
-	txrx_status.ant_signal_db = params->rssi - NORMALIZED_TO_NOISE_FLOOR;
 	txrx_status.rssi_comb = txrx_status.ant_signal_db;
 	txrx_status.nr_ant = 1;
 	txrx_status.rtap_flags |=
@@ -431,12 +428,12 @@ pkt_capture_mgmt_rx_data_cb(struct wlan_objmgr_psoc *psoc,
 {
 	struct mon_rx_status txrx_status = {0};
 	struct ieee80211_frame *wh;
-	uint8_t type, sub_type;
+	tpSirMacFrameCtl pfc;
 	qdf_nbuf_t nbuf;
 	int buf_len;
 	struct wlan_objmgr_vdev *vdev;
 
-	if (!(pkt_capture_get_pktcap_mode() & PACKET_CAPTURE_MODE_MGMT_ONLY)) {
+	if (!(pkt_capture_get_mode(psoc) & PKT_CAPTURE_MODE_MGMT_ONLY)) {
 		qdf_nbuf_free(wbuf);
 		return QDF_STATUS_E_FAILURE;
 	}
@@ -455,14 +452,13 @@ pkt_capture_mgmt_rx_data_cb(struct wlan_objmgr_psoc *psoc,
 
 	qdf_nbuf_free(wbuf);
 
+	pfc = (tpSirMacFrameCtl)(qdf_nbuf_data(nbuf));
 	wh = (struct ieee80211_frame *)qdf_nbuf_data(nbuf);
-	type = (wh)->i_fc[0] & IEEE80211_FC0_TYPE_MASK;
-	sub_type = (wh)->i_fc[0] & IEEE80211_FC0_SUBTYPE_MASK;
 
-	if ((type == IEEE80211_FC0_TYPE_MGT) &&
-	    (sub_type == MGMT_SUBTYPE_DISASSOC ||
-	     sub_type == MGMT_SUBTYPE_DEAUTH ||
-	     sub_type == MGMT_SUBTYPE_ACTION)) {
+	if ((pfc->type == IEEE80211_FC0_TYPE_MGT) &&
+	    (pfc->subType == SIR_MAC_MGMT_DISASSOC ||
+	     pfc->subType == SIR_MAC_MGMT_DEAUTH ||
+	     pfc->subType == SIR_MAC_MGMT_ACTION)) {
 		struct wlan_objmgr_pdev *pdev;
 
 		vdev = pkt_capture_get_vdev();
@@ -476,6 +472,7 @@ pkt_capture_mgmt_rx_data_cb(struct wlan_objmgr_psoc *psoc,
 				return status;
 		}
 	}
+
 
 	txrx_status.tsft = (u_int64_t)rx_params->tsf_delta;
 	txrx_status.chan_num = rx_params->channel;

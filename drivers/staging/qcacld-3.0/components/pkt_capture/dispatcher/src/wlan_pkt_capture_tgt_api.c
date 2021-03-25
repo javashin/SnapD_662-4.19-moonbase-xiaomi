@@ -79,7 +79,7 @@ tgt_pkt_capture_unregister_ev_handler(struct wlan_objmgr_vdev *vdev)
 
 	status = rx_ops->pkt_capture_unregister_ev_handlers(psoc);
 	if (QDF_IS_STATUS_ERROR(status))
-		pkt_capture_err("Unable to unregister mgmt offload handler");
+		pkt_capture_err("Unable to register mgmt offload handler");
 
 	return status;
 }

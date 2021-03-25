@@ -32,6 +32,14 @@
 #include "wlan_pkt_capture_mon_thread.h"
 
 /**
+ * struct pkt_capture_cfg - packet capture cfg to store ini values
+ * @pkt_capture_mode: packet capture mode
+ */
+struct pkt_capture_cfg {
+	enum pkt_capture_mode pkt_capture_mode;
+};
+
+/**
  * struct pkt_capture_cb_context - packet capture callback context
  * @mon_cb: monitor callback function pointer
  * @mon_ctx: monitor callback context

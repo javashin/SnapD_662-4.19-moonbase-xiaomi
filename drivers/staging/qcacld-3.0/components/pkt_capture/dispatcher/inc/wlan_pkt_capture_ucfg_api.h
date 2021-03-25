@@ -60,17 +60,8 @@ void ucfg_pkt_capture_deinit(void);
  *
  * Return: enum pkt_capture_mode
  */
-enum pkt_capture_mode ucfg_pkt_capture_get_mode(struct wlan_objmgr_psoc *psoc);
-
-/**
- * ucfg_pkt_capture_psoc_config(): API to update the psoc user configurations
- * @psoc: objmgr psoc handle
- * @cfg: packet capture psoc configurations
- *
- * Return: QDF_STATUS
- */
-QDF_STATUS ucfg_pkt_capture_psoc_config(struct wlan_objmgr_psoc *psoc,
-					struct pkt_capture_cfg *cfg);
+enum pkt_capture_mode
+ucfg_pkt_capture_get_mode(struct wlan_objmgr_psoc *psoc);
 
 /**
  * ucfg_pkt_capture_suspend_mon_thread() - suspend packet capture mon thread
@@ -260,10 +251,11 @@ void ucfg_pkt_capture_tx_completion_process(
 /**
  * ucfg_pkt_capture_record_channel() - Update Channel Information
  * for packet capture mode
+ * @vdev: pointer to vdev
  *
  * Return: None
  */
-void ucfg_pkt_capture_record_channel(void);
+void ucfg_pkt_capture_record_channel(struct wlan_objmgr_vdev *vdev);
 
 /**
  * ucfg_pkt_capture_register_callbacks - ucfg API to register WMA callbacks
@@ -291,13 +283,6 @@ static inline
 enum pkt_capture_mode ucfg_pkt_capture_get_mode(struct wlan_objmgr_psoc *psoc)
 {
 	return PACKET_CAPTURE_MODE_DISABLE;
-}
-
-static inline QDF_STATUS
-ucfg_pkt_capture_psoc_config(struct wlan_objmgr_psoc *psoc,
-			     struct pkt_capture_cfg *cfg)
-{
-	return QDF_STATUS_SUCCESS;
 }
 
 static inline
@@ -408,7 +393,7 @@ ucfg_pkt_capture_tx_completion_process(
 }
 
 static inline void
-ucfg_pkt_capture_record_channel(void)
+ucfg_pkt_capture_record_channel(struct wlan_objmgr_vdev *vdev)
 {
 }
 #endif /* WLAN_FEATURE_PKT_CAPTURE */

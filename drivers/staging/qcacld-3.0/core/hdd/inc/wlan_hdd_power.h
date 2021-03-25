@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2014-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2014-2018 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -26,14 +26,11 @@
  */
 
 #include "wlan_hdd_main.h"
-
-#ifdef WLAN_FEATURE_PACKET_FILTERING
-
-#define HDD_MAX_CMP_PER_PACKET_FILTER	5
+#include <linux/pm_qos.h>
+#include <linux/pm_runtime.h>
 
 #define HDD_WAKELOCK_TIMEOUT_CONNECT 1000
 #define HDD_WAKELOCK_TIMEOUT_RESUME 1000
-#define DISABLE_KRAIT_IDLE_PS_VAL      1
 
 /*
  * HDD_WAKELOCK_CONNECT_COMPLETE = CSR_JOIN_FAILURE_TIMEOUT_DEFAULT (3000) +
@@ -41,6 +38,10 @@
  *                      WNI_CFG_ASSOCIATION_FAILURE_TIMEOUT_STADEF  (2000)
  */
 #define HDD_WAKELOCK_CONNECT_COMPLETE 6000
+
+#ifdef WLAN_FEATURE_PACKET_FILTERING
+
+#define HDD_MAX_CMP_PER_PACKET_FILTER	5
 
 /**
  * enum pkt_filter_protocol_layer - packet filter protocol layer
@@ -126,18 +127,6 @@ struct pkt_filter_cfg {
 	struct pkt_filter_param_cfg params_data[HDD_MAX_CMP_PER_PACKET_FILTER];
 };
 
-#endif
-
-#ifdef FEATURE_ANI_LEVEL_REQUEST
-/**
- * ani_priv - structure to store the priv data for get ani request
- * @num_freq: number of freq received from the FW
- * @ani: data received from the FW
- */
-struct ani_priv {
-	uint32_t num_freq;
-	struct wmi_host_ani_level_event *ani;
-};
 #endif
 
 /**
@@ -310,6 +299,7 @@ int wlan_hdd_cfg80211_resume_wlan(struct wiphy *wiphy);
  */
 void hdd_ipv4_notifier_work_queue(struct work_struct *work);
 
+#ifdef WLAN_NS_OFFLOAD
 /**
  * hdd_enable_ns_offload() - enable NS offload
  * @adapter:   pointer to the adapter
@@ -326,7 +316,20 @@ void hdd_enable_ns_offload(struct hdd_adapter *adapter,
  * Return: nothing
  */
 void hdd_disable_ns_offload(struct hdd_adapter *adapter,
-			    enum pmo_offload_trigger trigger);
+	enum pmo_offload_trigger trigger);
+#else /* WLAN_NS_OFFLOAD */
+static inline
+void hdd_enable_ns_offload(struct hdd_adapter *adapter,
+			   enum pmo_offload_trigger trigger)
+{
+}
+
+static inline
+void hdd_disable_ns_offload(struct hdd_adapter *adapter,
+			    enum pmo_offload_trigger trigger)
+{
+}
+#endif /* WLAN_NS_OFFLOAD */
 
 /**
  * hdd_ipv6_notifier_work_queue() - IP V6 change notifier work handler
@@ -395,6 +398,21 @@ int wlan_hdd_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 int wlan_hdd_ipv4_changed(struct notifier_block *nb,
 			  unsigned long data, void *arg);
 
+#ifdef FEATURE_RUNTIME_PM
+/**
+ * wlan_hdd_pm_qos_notify() - PM QOS notifier call back function
+ * @nb: Pointer to notifier block kernel structure
+ * @curr_val: PM QOS current value
+ * @context: call back context
+ *
+ * This callback function for PM QOS change notification is used to setup
+ * dynamic runtime PM.
+ *
+ * Return: NOTIFY_DONE for success
+ */
+int wlan_hdd_pm_qos_notify(struct notifier_block *nb, unsigned long curr_val,
+			   void *context);
+#endif
 /**
  * wlan_hdd_ipv6_changed() - IPv6 change notifier callback
  * @nb: pointer to notifier block
@@ -521,19 +539,33 @@ hdd_wlan_fake_apps_suspend(struct wiphy *wiphy, struct net_device *dev,
 }
 #endif /* WLAN_SUSPEND_RESUME_TEST */
 
-#ifdef FEATURE_ANI_LEVEL_REQUEST
+#ifdef QCA_CONFIG_SMP
 /**
- * wlan_hdd_get_ani_level() - Wrapper to call API to fetch ani level
- * @adapter: pointer to HDD adapter
- * @ani: pointer to structure storing ani level for channels
- * @parsed_freqs: parsed freqs from the get ani command
- * @num_freqs: number of parsed channels
+ * wlan_hdd_rx_thread_resume() - Resume RX thread
+ * @hdd_ctx: HDD context
  *
- * Return: QDF_STATUS
+ * Check if RX thread suspended, and resume if yes.
+ *
+ * Return: None
  */
-QDF_STATUS wlan_hdd_get_ani_level(struct hdd_adapter *adapter,
-				  struct wmi_host_ani_level_event *ani,
-				  uint32_t *parsed_freqs,
-				  uint8_t num_freqs);
-#endif /* FEATURE_ANI_LEVEL_REQUEST */
+void wlan_hdd_rx_thread_resume(struct hdd_context *hdd_ctx);
+
+/**
+ * wlan_hdd_rx_thread_suspend() - Suspend RX thread
+ * @hdd_ctx: HDD context
+ *
+ * To suspend RX thread
+ *
+ * Return: 0 for success
+ */
+int wlan_hdd_rx_thread_suspend(struct hdd_context *hdd_ctx);
+
+#else
+static inline void wlan_hdd_rx_thread_resume(struct hdd_context *hdd_ctx) {}
+static inline int wlan_hdd_rx_thread_suspend(struct hdd_context *hdd_ctx)
+{
+	return 0;
+}
+#endif
+
 #endif /* __WLAN_HDD_POWER_H */

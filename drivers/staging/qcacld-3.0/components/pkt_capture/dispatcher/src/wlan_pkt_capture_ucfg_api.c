@@ -178,12 +178,6 @@ void ucfg_pkt_capture_deinit(void)
 		pkt_capture_err("Failed to unregister psoc create handler");
 }
 
-QDF_STATUS ucfg_pkt_capture_psoc_config(struct wlan_objmgr_psoc *psoc,
-					struct pkt_capture_cfg *psoc_cfg)
-{
-	return pkt_capture_psoc_config(psoc, psoc_cfg);
-}
-
 int ucfg_pkt_capture_suspend_mon_thread(struct wlan_objmgr_vdev *vdev)
 {
 	return pkt_capture_suspend_mon_thread(vdev);
@@ -293,9 +287,9 @@ ucfg_pkt_capture_tx_completion_process(
 				tx_retry_cnt);
 }
 
-void ucfg_pkt_capture_record_channel(void)
+void ucfg_pkt_capture_record_channel(struct wlan_objmgr_vdev *vdev)
 {
-	pkt_capture_record_channel();
+	pkt_capture_record_channel(vdev);
 }
 
 int

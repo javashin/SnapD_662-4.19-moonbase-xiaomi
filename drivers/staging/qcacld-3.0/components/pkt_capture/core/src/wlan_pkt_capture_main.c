@@ -22,6 +22,7 @@
  */
 
 #include "wlan_pkt_capture_main.h"
+#include "cfg_ucfg_api.h"
 #include "wlan_pkt_capture_mon_thread.h"
 #include "wlan_pkt_capture_mgmt_txrx.h"
 #include "target_if_pkt_capture.h"
@@ -94,6 +95,7 @@ pkt_capture_register_callbacks(struct wlan_objmgr_vdev *vdev,
 
 	target_if_pkt_capture_register_tx_ops(&vdev_priv->tx_ops);
 	target_if_pkt_capture_register_rx_ops(&vdev_priv->rx_ops);
+	pkt_capture_record_channel(vdev);
 
 	status = tgt_pkt_capture_register_ev_handler(vdev);
 	if (QDF_IS_STATUS_ERROR(status))
@@ -112,9 +114,6 @@ pkt_capture_register_callbacks(struct wlan_objmgr_vdev *vdev,
 		pkt_capture_err("Unable to send packet capture mode to fw");
 		goto send_mode_fail;
 	}
-
-	pkt_capture_record_channel();
-	pkt_capture_debug("packet capture callbacks registered successfully");
 
 	return QDF_STATUS_SUCCESS;
 
@@ -341,24 +340,21 @@ uint32_t pkt_capture_drop_nbuf_list(qdf_nbuf_t buf_list)
 	return num_dropped;
 }
 
-QDF_STATUS pkt_capture_psoc_config(struct wlan_objmgr_psoc *psoc,
-				   struct pkt_capture_cfg *cfg)
+/**
+ * pkt_capture_cfg_init() - Initialize packet capture cfg ini params
+ * @psoc_priv: psoc private object
+ *
+ * Return: None
+ */
+static void
+pkt_capture_cfg_init(struct pkt_psoc_priv *psoc_priv)
 {
-	struct pkt_psoc_priv *psoc_priv;
+	struct pkt_capture_cfg *cfg_param;
 
-	if (!psoc) {
-		pkt_capture_err("psoc is NULL");
-		return QDF_STATUS_E_FAILURE;
-	}
+	cfg_param = &psoc_priv->cfg_param;
 
-	psoc_priv = pkt_capture_psoc_get_priv(psoc);
-	if (!psoc_priv) {
-		pkt_capture_err("psoc_priv is NULL");
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	memcpy(&psoc_priv->cfg_param, cfg, sizeof(*cfg));
-	return QDF_STATUS_SUCCESS;
+	cfg_param->pkt_capture_mode = cfg_get(psoc_priv->psoc,
+					      CFG_PKT_CAPTURE_MODE);
 }
 
 QDF_STATUS
@@ -480,6 +476,7 @@ pkt_capture_psoc_create_notification(struct wlan_objmgr_psoc *psoc, void *arg)
 	}
 
 	psoc_priv->psoc = psoc;
+	pkt_capture_cfg_init(psoc_priv);
 
 	return status;
 
@@ -512,7 +509,7 @@ pkt_capture_psoc_destroy_notification(struct wlan_objmgr_psoc *psoc, void *arg)
 	return status;
 }
 
-void pkt_capture_record_channel(void)
+void pkt_capture_record_channel(struct wlan_objmgr_vdev *vdev)
 {
 	struct wlan_objmgr_pdev *pdev;
 	void *soc = cds_get_context(QDF_MODULE_ID_SOC);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, 2014-2018, 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, 2014-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -27,9 +27,7 @@
 
    ========================================================================*/
 
-#define MAX_MEASUREMENT_REQUEST      5
-#define MAX_NUM_CHANNELS             255
-
+#define MAX_MEASUREMENT_REQUEST 2
 #define DEFAULT_RRM_IDX 0
 
 typedef enum eRrmRetStatus {
@@ -64,7 +62,7 @@ typedef struct sSirBeaconReportReqInd {
 	uint8_t fMeasurementtype[SIR_ESE_MAX_MEAS_IE_REQS];
 	tAniSSID ssId;          /* May be wilcard. */
 	uint16_t uDialogToken;
-	tSirChannelList channelList;    /* From AP channel report. */
+	struct report_channel_list channelList;    /* From AP channel report. */
 	tRrmMsgReqSource msgSource;
 } tSirBeaconReportReqInd, *tpSirBeaconReportReqInd;
 
@@ -78,7 +76,7 @@ typedef struct sSirBeaconReportXmitInd {
 	uint16_t duration;
 	uint8_t regClass;
 	uint8_t numBssDesc;
-	tpSirBssDescription pBssDescription[SIR_BCN_REPORT_MAX_BSS_DESC];
+	struct bss_description *pBssDescription[SIR_BCN_REPORT_MAX_BSS_DESC];
 } tSirBeaconReportXmitInd, *tpSirBeaconReportXmitInd;
 
 typedef struct sSirNeighborReportReqInd {
@@ -220,8 +218,6 @@ typedef struct sRrmPEContext {
 	uint8_t DialogToken;
 	uint16_t prev_rrm_report_seq_num;
 	tpRRMReq pCurrentReq[MAX_MEASUREMENT_REQUEST];
-	uint8_t beacon_rpt_chan_list[MAX_NUM_CHANNELS];
-	uint8_t beacon_rpt_chan_num;
 } tRrmPEContext, *tpRrmPEContext;
 
 /* 2008 11k spec reference: 18.4.8.5 RCPI Measurement */
