@@ -388,6 +388,9 @@ static int va_macro_swr_pwr_event_v2(struct snd_soc_dapm_widget *w,
 	dev_dbg(va_dev, "%s: event = %d, lpi_enable = %d\n",
 		__func__, event, va_priv->lpi_enable);
 
+	if (!va_priv->lpi_enable)
+		return ret;
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		if (va_priv->swr_ctrl_data) {
@@ -399,8 +402,12 @@ static int va_macro_swr_pwr_event_v2(struct snd_soc_dapm_widget *w,
 				dev_dbg(va_dev, "%s: clock switch failed\n",
 					__func__);
 		}
+		msm_cdc_pinctrl_set_wakeup_capable(
+				va_priv->va_swr_gpio_p, false);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		msm_cdc_pinctrl_set_wakeup_capable(
+				va_priv->va_swr_gpio_p, true);
 		if (va_priv->swr_ctrl_data) {
 			clk_src = CLK_SRC_TX_RCG;
 			ret = swrm_wcd_notify(
@@ -433,6 +440,9 @@ static int va_macro_swr_pwr_event(struct snd_soc_dapm_widget *w,
 
 	dev_dbg(va_dev, "%s: event = %d, lpi_enable = %d\n",
 		__func__, event, va_priv->lpi_enable);
+
+	if (!va_priv->lpi_enable)
+		return ret;
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -553,12 +563,9 @@ static int va_macro_tx_va_mclk_enable(struct va_macro_priv *va_priv,
 		(enable ? "enable" : "disable"), va_priv->va_mclk_users);
 
 	if (enable) {
-		if (va_priv->swr_clk_users == 0) {
+		if (va_priv->swr_clk_users == 0)
 			msm_cdc_pinctrl_select_active_state(
 						va_priv->va_swr_gpio_p);
-			msm_cdc_pinctrl_set_wakeup_capable(
-					va_priv->va_swr_gpio_p, false);
-		}
 		clk_tx_ret = bolero_clk_rsc_request_clock(va_priv->dev,
 						   TX_CORE_CLK,
 						   TX_CORE_CLK,
@@ -651,12 +658,9 @@ static int va_macro_tx_va_mclk_enable(struct va_macro_priv *va_priv,
 						   TX_CORE_CLK,
 						   TX_CORE_CLK,
 						   false);
-		if (va_priv->swr_clk_users == 0) {
-			msm_cdc_pinctrl_set_wakeup_capable(
-					va_priv->va_swr_gpio_p, true);
+		if (va_priv->swr_clk_users == 0)
 			msm_cdc_pinctrl_select_sleep_state(
 						va_priv->va_swr_gpio_p);
-		}
 	}
 	return 0;
 
@@ -1140,10 +1144,11 @@ static int va_macro_enable_dec(struct snd_soc_dapm_widget *w,
 		va_priv->va_hpf_work[decimator].hpf_cut_off_freq =
 							hpf_cut_off_freq;
 
-		if (hpf_cut_off_freq != CF_MIN_3DB_150HZ)
+		if (hpf_cut_off_freq != CF_MIN_3DB_150HZ) {
 			snd_soc_component_update_bits(component, dec_cfg_reg,
 					    TX_HPF_CUT_OFF_FREQ_MASK,
 					    CF_MIN_3DB_150HZ << 5);
+		}
 		if (is_amic_enabled(component, decimator)) {
 			hpf_delay = BOLERO_CDC_VA_TX_AMIC_HPF_DELAY_MS;
 			unmute_delay = BOLERO_CDC_VA_TX_AMIC_UNMUTE_DELAY_MS;

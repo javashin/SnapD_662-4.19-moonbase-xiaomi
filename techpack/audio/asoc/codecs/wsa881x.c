@@ -112,6 +112,16 @@ struct wsa881x_priv {
 				 bool enable);
 };
 
+/* from bolero to WSA events */
+enum {
+	BOLERO_WSA_EVT_TX_CH_HOLD_CLEAR = 1,
+	BOLERO_WSA_EVT_PA_OFF_PRE_SSR,
+	BOLERO_WSA_EVT_SSR_DOWN,
+	BOLERO_WSA_EVT_SSR_UP,
+	BOLERO_WSA_EVT_PA_ON_POST_FSCLK,
+	BOLERO_WSA_EVT_PA_ON_POST_FSCLK_ADIE_LB,
+};
+
 struct wsa_ctrl_platform_data {
 	void *handle;
 	int (*update_wsa_event)(void *handle, u16 event, u32 data);
@@ -1230,7 +1240,7 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_component *component,
 		}
 		if (retry == 0) {
 			dev_err(component->dev,
-				"%s get devnum %d for dev addr %lx failed\n",
+				"%s get devnum %d for dev addr %llx failed\n",
 				__func__, devnum, dev->addr);
 			return -EINVAL;
 		}
@@ -1387,8 +1397,8 @@ static int wsa881x_event_notify(struct notifier_block *nb,
 					      WSA881X_SPKR_DRV_EN,
 					      0x80, 0x00);
 		break;
-	case BOLERO_SLV_EVT_PA_ON_POST_FSCLK:
-	case BOLERO_SLV_EVT_PA_ON_POST_FSCLK_ADIE_LB:
+	case BOLERO_WSA_EVT_PA_ON_POST_FSCLK:
+	case BOLERO_WSA_EVT_PA_ON_POST_FSCLK_ADIE_LB:
 		if ((snd_soc_component_read32(wsa881x->component,
 				WSA881X_SPKR_DAC_CTL) & 0x80) == 0x80)
 			snd_soc_component_update_bits(wsa881x->component,
@@ -1478,7 +1488,7 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 	ret = swr_get_logical_dev_num(pdev, pdev->addr, &devnum);
 	if (ret) {
 		dev_dbg(&pdev->dev,
-			"%s get devnum %d for dev addr %lx failed\n",
+			"%s get devnum %d for dev addr %llx failed\n",
 			__func__, devnum, pdev->addr);
 		goto dev_err;
 	}

@@ -2000,6 +2000,7 @@ static int tdm_slot_map_put(struct snd_kcontrol *kcontrol,
 	int channel = ucontrol->value.integer.value[1];
 	unsigned int max_slot_offset = 0;
 	unsigned int offset_val = 0;
+	unsigned int max_slot_offset = 0;
 	unsigned int *slot_offset = NULL;
 	struct tdm_dev_config *config = NULL;
 	struct msm_asoc_mach_data *pdata = NULL;
@@ -2025,6 +2026,7 @@ static int tdm_slot_map_put(struct snd_kcontrol *kcontrol,
 		pr_err("%s: tdm config is NULL\n", __func__);
 		return -EINVAL;
 	}
+
 	slot_offset = config->tdm_slot_offset;
 	if (!slot_offset) {
 		pr_err("%s: slot offset is NULL\n", __func__);
@@ -4614,6 +4616,7 @@ static int kona_tdm_snd_hw_params(struct snd_pcm_substream *substream,
 	unsigned int slot_mask, rate, clk_freq;
 	unsigned int *slot_offset;
 	struct tdm_dev_config *config;
+	struct msm_asoc_mach_data *pdata = NULL;
 	unsigned int path_dir = 0, interface = 0, channel_interface = 0;
 	struct msm_asoc_mach_data *pdata = NULL;
 
@@ -4648,6 +4651,7 @@ static int kona_tdm_snd_hw_params(struct snd_pcm_substream *substream,
 		pr_err("%s: tdm config is NULL\n", __func__);
 		return -EINVAL;
 	}
+
 	slot_offset = config->tdm_slot_offset;
 	if (!slot_offset) {
 		pr_err("%s: slot offset is NULL\n", __func__);
@@ -5568,6 +5572,38 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 				}
 			}
 		}
+
+		if (msm_aux_dev[i].codec_of_node) {
+			pdev = of_find_device_by_node(
+					msm_aux_dev[i].codec_of_node);
+
+			if (pdev)
+				data = (char*) of_device_get_match_data(
+								&pdev->dev);
+			if (data != NULL) {
+				if (!strncmp(data, "wcd937x",
+						sizeof("wcd937x"))) {
+					is_wcd937x_used = true;
+					break;
+				}
+			}
+		}
+	}
+
+	if (is_wcd937x_used) {
+		bolero_set_port_map(component,
+				    ARRAY_SIZE(sm_port_map_wcd937x),
+				    sm_port_map_wcd937x);
+	} else if (pdata->lito_v2_enabled) {
+		/*
+		 * Enable tx data line3 for saipan version v2 and
+		 * write corresponding lpi register.
+		 */
+		bolero_set_port_map(component, ARRAY_SIZE(sm_port_map_v2),
+				    sm_port_map_v2);
+	} else {
+		bolero_set_port_map(component, ARRAY_SIZE(sm_port_map),
+				    sm_port_map);
 	}
 
 	if (is_wcd937x_used) {
@@ -6370,6 +6406,33 @@ static struct snd_soc_dai_link msm_common_be_dai_links[] = {
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
 	},
+	/* Proxy Tx BACK END DAI Link */
+	{
+		.name = LPASS_BE_PROXY_TX,
+		.stream_name = "Proxy Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.8195",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.id = MSM_BACKEND_DAI_PROXY_TX,
+		.ignore_suspend = 1,
+	},
+	/* Proxy Rx BACK END DAI Link */
+	{
+		.name = LPASS_BE_PROXY_RX,
+		.stream_name = "Proxy Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.8194",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.id = MSM_BACKEND_DAI_PROXY_RX,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
 	{
 		.name = LPASS_BE_USB_AUDIO_RX,
 		.stream_name = "USB Audio Playback",
@@ -6398,6 +6461,10 @@ static struct snd_soc_dai_link msm_common_be_dai_links[] = {
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
+};
+
+
+static struct snd_soc_dai_link msm_tdm_be_dai_links[] = {
 	{
 		.name = LPASS_BE_WSA_CDC_DMA_TX_0_VI,
 		.stream_name = "WSA CDC DMA0 Capture",
@@ -7829,8 +7896,8 @@ static int msm_init_aux_dev(struct platform_device *pdev,
 	u32 codec_max_aux_devs = 0;
 	u32 codec_aux_dev_cnt = 0;
 	int i;
-	struct msm_wsa881x_dev_info *wsa881x_dev_info;
-	struct aux_codec_dev_info *aux_cdc_dev_info;
+	struct msm_wsa881x_dev_info *wsa881x_dev_info = NULL;
+	struct aux_codec_dev_info *aux_cdc_dev_info = NULL;
 	const char *auxdev_name_prefix[1];
 	char *dev_name_str = NULL;
 	int found = 0;
@@ -8302,13 +8369,14 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 				   &pdata->tdm_max_slots);
 	if (ret) {
 		dev_err(&pdev->dev, "%s: No DT match for tdm max slots\n",
-			__func__);
+				__func__);
 	}
+
 	if ((pdata->tdm_max_slots <= 0) || (pdata->tdm_max_slots >
-	    TDM_MAX_SLOTS)) {
+	     TDM_MAX_SLOTS)) {
 		pdata->tdm_max_slots = TDM_MAX_SLOTS;
 		dev_err(&pdev->dev, "%s: Using default tdm max slot: %d\n",
-			__func__, pdata->tdm_max_slots);
+				__func__, pdata->tdm_max_slots);
 	}
 
 	pdata->hph_en1_gpio_p = of_parse_phandle(pdev->dev.of_node,

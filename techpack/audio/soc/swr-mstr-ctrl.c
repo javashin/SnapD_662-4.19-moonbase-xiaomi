@@ -2102,13 +2102,13 @@ handle_irq:
 		case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
 			value = swr_master_read(swrm, SWRM_CMD_FIFO_STATUS);
 			dev_err(swrm->dev,
-				"%s: SWR read FIFO overflow fifo status %x\n",
+				"%s: SWR read FIFO overflow fifo status 0x%x\n",
 				__func__, value);
 			break;
 		case SWRM_INTERRUPT_STATUS_RD_FIFO_UNDERFLOW:
 			value = swr_master_read(swrm, SWRM_CMD_FIFO_STATUS);
 			dev_err(swrm->dev,
-				"%s: SWR read FIFO underflow fifo status %x\n",
+				"%s: SWR read FIFO underflow fifo status 0x%x\n",
 				__func__, value);
 			break;
 		case SWRM_INTERRUPT_STATUS_WR_CMD_FIFO_OVERFLOW:
@@ -2356,7 +2356,7 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 						ret = 0;
 					}
 					dev_dbg(swrm->dev,
-						"%s: devnum %d is assigned for dev addr %lx\n",
+						"%s: devnum %d is assigned for dev addr %llx\n",
 						__func__, i, swr_dev->addr);
 				}
 			}
