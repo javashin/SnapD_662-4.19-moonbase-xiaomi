@@ -365,4 +365,5 @@ enum fastrpc_proc_attr {
 	FASTRPC_MODE_SYSTEM_PROCESS		= 1 << 5,
 
 };
+
 #endif
